@@ -26,7 +26,7 @@ async def new_task_watch():
         row = change['new_val']
 
         logger.debug(f"Dispatching row: {row}")
-        await sio.emit(event='task_update', data=row, namespace='/events', broadcast=True)
+        await sio.emit(event='task_update', data=row, broadcast=True)
         logger.debug('Row delivered')
 
 
