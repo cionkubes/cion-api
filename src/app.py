@@ -19,7 +19,6 @@ sessions = {}
 
 def create_session(user):
     token = binascii.hexlify(os.urandom(64)).decode()
-    print(token)
     sessions[token] = user
     return token
 
@@ -62,15 +61,18 @@ async def new_task_watch():
         logger.debug('Row delivered')
 
 
+resp_bad_creds = web.Response(status=401,
+                              text=json.dumps({'reason': 'Bad credentials.'}),
+                              content_type='application/json')
+
+
 async def api_auth(request):
-    cookie_key = 'CION_TOKEN'
     bod = await request.json()
     username = bod['username']
     password = bod['password']
 
     user = await r.db('cion').table('users').get(username).run(conn)
 
-    resp_bad_creds = web.Response(status=401, text='Bad credentials.')
     if not user:
         return resp_bad_creds
 
@@ -84,7 +86,9 @@ async def api_auth(request):
         return resp_bad_creds
 
     token = create_session(user)
-    return web.Response(status=200, text=json.dumps({'token': token}), content_type='application/json')
+    return web.Response(status=200,
+                        text=json.dumps({'token': token}),
+                        content_type='application/json')
 
 
 async def api_create_user(request):
@@ -101,17 +105,17 @@ async def api_create_user(request):
 
     print(db_res)
 
-    return web.Response(status=200)
+    return web.Response(status=201)
 
 
 @sio.on('connect')
 def user_connected(sid, environ):
-    print('User connected')
+    print('Client connected')
 
 
 @sio.on('disconnect')
 def disconnect(sid):
-    print('disconnect')
+    print('Client disconnect')
 
 
 if __name__ == '__main__':
