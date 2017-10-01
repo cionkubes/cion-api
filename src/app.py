@@ -1,14 +1,31 @@
-from aiohttp import web
+import hashlib
+
 import rethinkdb as r
-from logzero import logger
 import socketio
+from aiohttp import web
+from logzero import logger
+from numpy import random
+
+conn = None
 
 sio = socketio.AsyncServer(async_mode='aiohttp')
 app = web.Application()
 sio.attach(app)
 
 
+def hash_password(password: str):
+    iterations = random.randint(low=20000, high=25000)
+    salt = os.urandom(32)
+    pw_hash = create_hash(password, salt, iterations)
+    return pw_hash, salt, iterations
+
+
+def create_hash(password: str, salt, iterations):
+    return hashlib.pbkdf2_hmac('sha512', password.encode(), salt, iterations, 128)
+
+
 async def new_task_watch():
+    global conn
     logger.info('starting task watch loop')
 
     db_host = 'localhost'
@@ -41,7 +58,9 @@ def disconnect(sid):
 
 
 if __name__ == '__main__':
-    import sys, os
+    import sys
+    import os
+
     prod = len(sys.argv) > 1 and sys.argv[1].lower() == 'prod'
 
     if not prod:
@@ -50,11 +69,54 @@ if __name__ == '__main__':
         with open(os.path.join(static_path, 'spa-entry.html')) as f:
             indexfile = f.read()
 
+
         async def index(request):
             return web.Response(text=indexfile, content_type='text/html')
 
+
+        async def api_login(request):
+            bod = await request.json()
+            username = bod['username']
+            password = bod['password']
+
+            user = await r.db('cion').table('users').get(username).run(conn)
+
+            resp_bad_creds = web.Response(status=401, text='Bad credentials.')
+            if not user:
+                return resp_bad_creds
+
+            salt = user['salt']
+            iterations = user['iterations']
+            stored_hash = user['password_hash']
+
+            input_hash = create_hash(password, salt, iterations)
+
+            if not input_hash == stored_hash:
+                return resp_bad_creds
+
+            return web.Response(status=200)
+
+
+        async def api_create_user(request):
+            bod = await request.json()
+            username = bod['username']
+            pw_hash, salt, iterations = hash_password(bod['password'])
+            db_res = await r.db('cion').table('users').insert({
+                "username": username,
+                "password_hash": pw_hash,
+                "salt": salt,
+                "iterations": iterations
+            }).run(conn)
+
+            print(db_res)
+
+            return web.Response(status=200)
+
+
         app.router.add_get('/', index)
         app.router.add_static('/resources', os.path.join(static_path, 'resources'))
+        app.router.add_post('/api/v1/login', api_login)
+        app.router.add_post('/api/v1/usercreate', api_create_user)
 
     sio.start_background_task(new_task_watch)
     web.run_app(app, host='0.0.0.0', port=5000)
