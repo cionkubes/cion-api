@@ -115,8 +115,9 @@ if __name__ == '__main__':
 
         app.router.add_get('/', index)
         app.router.add_static('/resources', os.path.join(static_path, 'resources'))
-        app.router.add_post('/api/v1/login', api_login)
-        app.router.add_post('/api/v1/usercreate', api_create_user)
+
+    app.router.add_post('/api/v1/login', api_login)
+    app.router.add_post('/api/v1/usercreate', api_create_user)
 
     sio.start_background_task(new_task_watch)
     web.run_app(app, host='0.0.0.0', port=5000)
