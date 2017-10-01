@@ -1,4 +1,6 @@
+import binascii
 import hashlib
+import json
 
 import rethinkdb as r
 import socketio
@@ -11,6 +13,19 @@ conn = None
 sio = socketio.AsyncServer(async_mode='aiohttp')
 app = web.Application()
 sio.attach(app)
+
+sessions = {}
+
+
+def create_session(user):
+    token = binascii.hexlify(os.urandom(64)).decode()
+    print(token)
+    sessions[token] = user
+    return token
+
+
+def retrieve_session(token):
+    return sessions[token]
 
 
 def create_hash(to_hash: str):
@@ -47,7 +62,8 @@ async def new_task_watch():
         logger.debug('Row delivered')
 
 
-async def api_login(request):
+async def api_auth(request):
+    cookie_key = 'CION_TOKEN'
     bod = await request.json()
     username = bod['username']
     password = bod['password']
@@ -67,7 +83,8 @@ async def api_login(request):
     if not input_hash == stored_hash:
         return resp_bad_creds
 
-    return web.Response(status=200)
+    token = create_session(user)
+    return web.Response(status=200, text=json.dumps({'token': token}), content_type='application/json')
 
 
 async def api_create_user(request):
@@ -117,7 +134,7 @@ if __name__ == '__main__':
         app.router.add_get('/', index)
         app.router.add_static('/resources', os.path.join(static_path, 'resources'))
 
-    app.router.add_post('/api/v1/login', api_login)
+    app.router.add_post('/api/v1/auth', api_auth)
     app.router.add_post('/api/v1/usercreate', api_create_user)
 
     sio.start_background_task(new_task_watch)
