@@ -47,6 +47,45 @@ async def new_task_watch():
         logger.debug('Row delivered')
 
 
+async def api_login(request):
+    bod = await request.json()
+    username = bod['username']
+    password = bod['password']
+
+    user = await r.db('cion').table('users').get(username).run(conn)
+
+    resp_bad_creds = web.Response(status=401, text='Bad credentials.')
+    if not user:
+        return resp_bad_creds
+
+    salt = user['salt']
+    iterations = user['iterations']
+    stored_hash = user['password_hash']
+
+    input_hash = create_hash(password, salt, iterations)
+
+    if not input_hash == stored_hash:
+        return resp_bad_creds
+
+    return web.Response(status=200)
+
+
+async def api_create_user(request):
+    bod = await request.json()
+    username = bod['username']
+    pw_hash, salt, iterations = hash_password(bod['password'])
+    db_res = await r.db('cion').table('users').insert({
+        "username": username,
+        "password_hash": pw_hash,
+        "salt": salt,
+        "iterations": iterations
+    }).run(conn)
+
+    print(db_res)
+
+    return web.Response(status=200)
+
+
 @sio.on('connect')
 def user_connected(sid, environ):
     print('User connected')
@@ -72,45 +111,6 @@ if __name__ == '__main__':
 
         async def index(request):
             return web.Response(text=indexfile, content_type='text/html')
-
-
-        async def api_login(request):
-            bod = await request.json()
-            username = bod['username']
-            password = bod['password']
-
-            user = await r.db('cion').table('users').get(username).run(conn)
-
-            resp_bad_creds = web.Response(status=401, text='Bad credentials.')
-            if not user:
-                return resp_bad_creds
-
-            salt = user['salt']
-            iterations = user['iterations']
-            stored_hash = user['password_hash']
-
-            input_hash = create_hash(password, salt, iterations)
-
-            if not input_hash == stored_hash:
-                return resp_bad_creds
-
-            return web.Response(status=200)
-
-
-        async def api_create_user(request):
-            bod = await request.json()
-            username = bod['username']
-            pw_hash, salt, iterations = hash_password(bod['password'])
-            db_res = await r.db('cion').table('users').insert({
-                "username": username,
-                "password_hash": pw_hash,
-                "salt": salt,
-                "iterations": iterations
-            }).run(conn)
-
-            print(db_res)
-
-            return web.Response(status=200)
 
 
         app.router.add_get('/', index)
