@@ -13,15 +13,15 @@ app = web.Application()
 sio.attach(app)
 
 
-def hash_password(password: str):
+def create_hash(to_hash: str):
     iterations = random.randint(low=20000, high=25000)
     salt = os.urandom(32)
-    pw_hash = create_hash(password, salt, iterations)
-    return pw_hash, salt, iterations
+    hash_created = hash_str(to_hash, salt, iterations)
+    return hash_created, salt, iterations
 
 
-def create_hash(password: str, salt, iterations):
-    return hashlib.pbkdf2_hmac('sha512', password.encode(), salt, iterations, 128)
+def hash_str(to_hash: str, salt, iterations):
+    return hashlib.pbkdf2_hmac('sha512', to_hash.encode(), salt, iterations, 128)
 
 
 async def new_task_watch():
@@ -62,7 +62,7 @@ async def api_login(request):
     iterations = user['iterations']
     stored_hash = user['password_hash']
 
-    input_hash = create_hash(password, salt, iterations)
+    input_hash = hash_str(password, salt, iterations)
 
     if not input_hash == stored_hash:
         return resp_bad_creds
@@ -73,7 +73,8 @@ async def api_login(request):
 async def api_create_user(request):
     bod = await request.json()
     username = bod['username']
-    pw_hash, salt, iterations = hash_password(bod['password'])
+    pw_hash, salt, iterations = create_hash(bod['password'])
+
     db_res = await r.db('cion').table('users').insert({
         "username": username,
         "password_hash": pw_hash,
