@@ -110,12 +110,12 @@ async def api_create_user(request):
 
 async def get_tasks(request):
     print('status requested')
-    tasks = await r.db('cion').table('tasks').run(conn)
-    print(tasks)
+    task_cursor = await r.db('cion').table('tasks', read_mode='majority').run(conn)
+
     t = []
-    for task in tasks.fetch_next():
-        t.append(task)
-    print(json.dumps(t))
+    while await task_cursor.fetch_next():
+        t.append(await task_cursor.next())
+
     return web.Response(status=200,
                         text=json.dumps(t),
                         content_type='application/json')
