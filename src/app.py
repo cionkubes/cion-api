@@ -108,6 +108,19 @@ async def api_create_user(request):
     return web.Response(status=201)
 
 
+async def get_tasks(request):
+    print('status requested')
+    task_cursor = await r.db('cion').table('tasks', read_mode='majority').run(conn)
+
+    t = []
+    while await task_cursor.fetch_next():
+        t.append(await task_cursor.next())
+
+    return web.Response(status=200,
+                        text=json.dumps(t),
+                        content_type='application/json')
+
+
 @sio.on('connect')
 def user_connected(sid, environ):
     print('Client connected')
@@ -140,6 +153,7 @@ if __name__ == '__main__':
 
     app.router.add_post('/api/v1/auth', api_auth)
     app.router.add_post('/api/v1/usercreate', api_create_user)
+    app.router.add_get('/api/v1/tasks', get_tasks)
 
     sio.start_background_task(new_task_watch)
     web.run_app(app, host='0.0.0.0', port=5000)
