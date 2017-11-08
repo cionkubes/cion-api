@@ -3,63 +3,55 @@ from aiohttp import web
 from aiohttp.web_ws import MsgType
 
 from logzero import logger
+import rethinkdb as r
 
-app = web.Application()
 
-socket_clients = []
+def create(conn):
+    socket_clients = []
 
-async def websocket(request):
-    ws = web.WebSocketResponse(autoclose=False)
-    await ws.prepare(request)
+    async def listener():
+        logger.info('starting task watch loop')
 
-    socket_clients.append(ws)
+        cursor = await r.db('cion').table('tasks').changes().run(conn)
 
-    while True:
-        msg = await ws.receive()
-        logger.debug(msg)
-        if msg.type == MsgType.text:
-            data = msg.json()
+        while await cursor.fetch_next():
+            change = await cursor.next()
 
-            ws.send_json(data)
-            logger.info(f'Message')
-            continue
-        elif msg.type == MsgType.error:
-            logger.debug('ws connection closed with exception %s' % ws.exception())
+            logger.debug(f"Change in tasks table: {change}")
+            row = change['new_val']
 
-        break
+            logger.debug(f"Dispatching row: {row}")
 
-    logger.info("Closing websocket.")
-    socket_clients.remove(ws)
-    ws.close()
+            msg = dict(event='task_update', data=row)
+            for client in socket_clients:
+                await client.send_json(msg)
 
-    return ws
+            logger.debug('Row delivered')
 
-if __name__ == '__main__':
-    import sys
-    import os
+    async def websocket(request):
+        ws = web.WebSocketResponse(autoclose=False)
+        await ws.prepare(request)
 
-    prod = len(sys.argv) > 1 and sys.argv[1].lower() == 'prod'
+        socket_clients.append(ws)
 
-    routes = [
-        # ('POST', '/api/v1/auth', api_auth),
-        # ('POST', '/api/v1/usercreate', api_create_user),
-        ('GET', '/api/ws', websocket)
-    ]
+        while True:
+            msg = await ws.receive()
+            logger.debug(msg)
+            if msg.type == MsgType.text:
+                data = msg.json()
 
-    if not prod:
-        static_path = os.path.join('..', '..', 'frontend', 'src', 'www')
+                ws.send_json(data)
+                logger.info(f'Message')
+                continue
+            elif msg.type == MsgType.error:
+                logger.debug('ws connection closed with exception %s' % ws.exception())
+            elif msg.type == MsgType.close:
+                break
 
-        with open(os.path.join(static_path, 'spa-entry.html')) as f:
-            indexfile = f.read()
+        logger.info("Closing websocket.")
+        socket_clients.remove(ws)
+        ws.close()
 
-        async def index(request):
-            return web.Response(text=indexfile, content_type='text/html')
+        return ws
 
-        app.router.add_static('/resources', os.path.join(static_path, 'resources'))
-        routes.append(('GET', '/', index))
-
-    for route in routes:
-        app.router.add_route(*route)
-
-    # sio.start_background_task(new_task_watch)
-    web.run_app(app, host='0.0.0.0', port=5000)
+    return listener(), websocket

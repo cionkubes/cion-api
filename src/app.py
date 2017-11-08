@@ -1,18 +1,18 @@
 import binascii
 import hashlib
+import asyncio
 import json
 
 import rethinkdb as r
-import socketio
 from aiohttp import web
-from logzero import logger
 from numpy import random
 
-conn = None
+import websocket
 
-sio = socketio.AsyncServer(async_mode='aiohttp')
 app = web.Application()
-sio.attach(app)
+r.set_loop_type('asyncio')
+
+conn = None
 
 sessions = {}
 
@@ -36,29 +36,6 @@ def create_hash(to_hash: str):
 
 def hash_str(to_hash: str, salt, iterations):
     return hashlib.pbkdf2_hmac('sha512', to_hash.encode(), salt, iterations, 128)
-
-
-async def new_task_watch():
-    global conn
-    logger.info('starting task watch loop')
-
-    db_host = 'localhost'
-    db_port = '28016'
-
-    r.set_loop_type('asyncio')
-
-    conn = await r.connect(db_host, db_port)
-    cursor = await r.db('cion').table('tasks').changes().run(conn)
-
-    while await cursor.fetch_next():
-        change = await cursor.next()
-
-        logger.debug(f"Change in tasks table: {change}")
-        row = change['new_val']
-
-        logger.debug(f"Dispatching row: {row}")
-        await sio.emit(event='task_update', data=row, broadcast=True)
-        logger.debug('Row delivered')
 
 
 resp_bad_creds = web.Response(status=401,
@@ -121,16 +98,6 @@ async def get_tasks(request):
                         content_type='application/json')
 
 
-@sio.on('connect')
-def user_connected(sid, environ):
-    print('Client connected')
-
-
-@sio.on('disconnect')
-def disconnect(sid):
-    print('Client disconnect')
-
-
 if __name__ == '__main__':
     import sys
     import os
@@ -143,17 +110,22 @@ if __name__ == '__main__':
         with open(os.path.join(static_path, 'spa-entry.html')) as f:
             indexfile = f.read()
 
-
         async def index(request):
             return web.Response(text=indexfile, content_type='text/html')
 
-
         app.router.add_get('/', index)
         app.router.add_static('/resources', os.path.join(static_path, 'resources'))
+
+    db_host = os.environ['DATABASE_HOST']
+    db_port = os.environ['DATABASE_PORT']
+    conn = asyncio.get_event_loop().run_until_complete(r.connect(db_host, db_port))
+
+    wsserver, wsroute = websocket.create(conn)
+    asyncio.ensure_future(wsserver)
+    app.router.add_get('/api/v1/socket', wsroute)
 
     app.router.add_post('/api/v1/auth', api_auth)
     app.router.add_post('/api/v1/usercreate', api_create_user)
     app.router.add_get('/api/v1/tasks', get_tasks)
 
-    sio.start_background_task(new_task_watch)
     web.run_app(app, host='0.0.0.0', port=5000)
