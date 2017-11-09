@@ -1,57 +1,71 @@
-import asyncio
 from aiohttp import web
 from aiohttp.web_ws import MsgType
+from collections import defaultdict
 
 from logzero import logger
-import rethinkdb as r
 
 
 def create(conn):
-    socket_clients = []
+    socket = WebSocketListener(conn)
+    return socket.handle_request
 
-    async def listener():
-        logger.info('starting task watch loop')
 
-        cursor = await r.db('cion').table('tasks').changes().run(conn)
+class WebSocketListener:
+    def __init__(self, conn):
+        self.clients = []
+        self.subscriptions = defaultdict(dict)
+        self.conn = conn
 
-        while await cursor.fetch_next():
-            change = await cursor.next()
-
-            logger.debug(f"Change in tasks table: {change}")
-            row = change['new_val']
-
-            logger.debug(f"Dispatching row: {row}")
-
-            msg = dict(event='task_update', data=row)
-            for client in socket_clients:
-                await client.send_json(msg)
-
-            logger.debug('Row delivered')
-
-    async def websocket(request):
+    async def handle_request(self, request):
         ws = web.WebSocketResponse(autoclose=False)
         await ws.prepare(request)
 
-        socket_clients.append(ws)
+        self.clients.append(ws)
 
-        while True:
-            msg = await ws.receive()
-            logger.debug(msg)
-            if msg.type == MsgType.text:
-                data = msg.json()
+        try:
+            while True:
+                msg = await ws.receive()
+                logger.debug(msg)
+                if msg.type == MsgType.text:
+                    data = msg.json()
 
-                ws.send_json(data)
-                logger.info(f'Message')
-                continue
-            elif msg.type == MsgType.error:
-                logger.debug('ws connection closed with exception %s' % ws.exception())
-            elif msg.type == MsgType.close:
-                break
+                    handler = WebSocketListener.dispatch[data['channel']]
+                    handler(self, ws, data['message'])
+                elif msg.type == MsgType.error:
+                    logger.debug('ws connection closed with exception %s' % ws.exception())
+                elif msg.type == MsgType.close:
+                    break
+        finally:
+            logger.info("Closing websocket.")
+            self.clients.remove(ws)
 
-        logger.info("Closing websocket.")
-        socket_clients.remove(ws)
-        ws.close()
+            for sub in self.subscriptions[ws].values():
+                sub.dispose()
+
+            ws.close()
 
         return ws
 
-    return listener(), websocket
+    def subscribe(self, ws, message):
+        subs = self.subscriptions[ws]
+        table = message
+
+        if table in subs:
+            return
+
+        def on_change(change):
+            ws.send_json({"channel": f"changefeed-{table}", "message": change})
+
+        subs[table] = self.conn.observe(message).subscribe(on_change)
+
+    def unsubscribe(self, ws, message):
+        subs = self.subscriptions[ws]
+        table = message
+
+        if table in subs:
+            subs[table].dispose()
+
+    dispatch = {
+        "subscribe": subscribe,
+        "unsubscribe": unsubscribe,
+    }

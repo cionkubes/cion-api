@@ -5,9 +5,10 @@ import json
 
 import rethinkdb as r
 from aiohttp import web
-from numpy import random
+import random
 
 import websocket
+from rethink_async import connection
 
 app = web.Application()
 r.set_loop_type('asyncio')
@@ -48,7 +49,7 @@ async def api_auth(request):
     username = bod['username']
     password = bod['password']
 
-    user = await r.db('cion').table('users').get(username).run(conn)
+    user = await conn.run(conn.db().table('users').get(username))
 
     if not user:
         return resp_bad_creds
@@ -73,12 +74,12 @@ async def api_create_user(request):
     username = bod['username']
     pw_hash, salt, iterations = create_hash(bod['password'])
 
-    db_res = await r.db('cion').table('users').insert({
+    db_res = await conn.run(conn.db().table('users').insert({
         "username": username,
         "password_hash": pw_hash,
         "salt": salt,
         "iterations": iterations
-    }).run(conn)
+    }))
 
     print(db_res)
 
@@ -87,11 +88,10 @@ async def api_create_user(request):
 
 async def get_tasks(request):
     print('status requested')
-    task_cursor = await r.db('cion').table('tasks', read_mode='majority').run(conn)
 
     t = []
-    while await task_cursor.fetch_next():
-        t.append(await task_cursor.next())
+    async for task in conn.run_iter(conn.db().table('tasks', read_mode='majority')):
+        t.append(task)
 
     return web.Response(status=200,
                         text=json.dumps(t),
@@ -118,10 +118,10 @@ if __name__ == '__main__':
 
     db_host = os.environ['DATABASE_HOST']
     db_port = os.environ['DATABASE_PORT']
-    conn = asyncio.get_event_loop().run_until_complete(r.connect(db_host, db_port))
 
-    wsserver, wsroute = websocket.create(conn)
-    asyncio.ensure_future(wsserver)
+    conn = asyncio.get_event_loop().run_until_complete(connection(db_host, db_port))
+
+    wsroute = websocket.create(conn)
     app.router.add_get('/api/v1/socket', wsroute)
 
     app.router.add_post('/api/v1/auth', api_auth)

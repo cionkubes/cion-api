@@ -2,3 +2,4 @@ aiohttp==2.2.5
 logzero==1.3.1
 python-socketio==1.8.0
 rethinkdb==2.3.0.post6
+git+https://github.com/Trondheim-kommune/cion-rdb-changefeed-listener@0.1.0
