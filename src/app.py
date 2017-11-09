@@ -1,12 +1,12 @@
 import binascii
 import hashlib
 import json
+import random
 
 import rethinkdb as r
 import socketio
 from aiohttp import web
 from logzero import logger
-from numpy import random
 
 conn = None
 
@@ -28,7 +28,7 @@ def retrieve_session(token):
 
 
 def create_hash(to_hash: str):
-    iterations = random.randint(low=20000, high=25000)
+    iterations = random.randint(20000, 25000)
     salt = os.urandom(32)
     hash_created = hash_str(to_hash, salt, iterations)
     return hash_created, salt, iterations
