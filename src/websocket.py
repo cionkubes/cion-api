@@ -35,6 +35,8 @@ class WebSocketListener:
                     logger.debug('ws connection closed with exception %s' % ws.exception())
                 elif msg.type == MsgType.close:
                     break
+        except Exception as e:
+            logger.exception("Unhandled exception in socket request handler.")
         finally:
             logger.info("Closing websocket.")
             self.clients.remove(ws)
@@ -54,9 +56,16 @@ class WebSocketListener:
             return
 
         def on_change(change):
-            ws.send_json({"channel": f"changefeed-{table}", "message": change})
+            ws.send_json({"channel": f"changefeed-{table}", "type": "next", "message": change})
 
-        subs[table] = self.conn.observe(message).subscribe(on_change)
+        def on_error(error):
+            logger.warn(error)
+            ws.send_json({"channel": f"changefeed-{table}", "type": "error", "message": str(error)})
+
+        def on_complete():
+            del subs[table]
+
+        subs[table] = self.conn.observe(message).subscribe(on_change, on_error, on_complete)
 
     def unsubscribe(self, ws, message):
         subs = self.subscriptions[ws]
