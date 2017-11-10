@@ -2,10 +2,11 @@ import binascii
 import hashlib
 import asyncio
 import json
+import random
 
 import rethinkdb as r
 from aiohttp import web
-import random
+from logzero import logger
 
 import websocket
 from rethink_async import connection
@@ -29,7 +30,7 @@ def retrieve_session(token):
 
 
 def create_hash(to_hash: str):
-    iterations = random.randint(low=20000, high=25000)
+    iterations = random.randint(20000, 25000)
     salt = os.urandom(32)
     hash_created = hash_str(to_hash, salt, iterations)
     return hash_created, salt, iterations
