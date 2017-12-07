@@ -1,15 +1,17 @@
+import asyncio
 import binascii
 import hashlib
-import asyncio
 import json
 import random
 
 import rethinkdb as r
 from aiohttp import web
-from logzero import logger
+from rethink_async import connection
+from rethinkpool import RethinkPool
 
 import websocket
-from rethink_async import connection
+
+pool = RethinkPool()
 
 app = web.Application()
 r.set_loop_type('asyncio')
@@ -87,13 +89,27 @@ async def api_create_user(request):
     return web.Response(status=201)
 
 
-async def get_tasks(request):
-    print('status requested')
+async def set_document(request):
+    bod = await request.json()
+    db_res = await conn.run(conn.db().table('documents').get(bod['name']).update(bod))
+    print(db_res)
+    return web.Response(status=201)
 
+
+async def get_tasks(request):
     t = []
     async for task in conn.run_iter(conn.db().table('tasks', read_mode='majority')):
         t.append(task)
 
+    return web.Response(status=200,
+                        text=json.dumps(t),
+                        content_type='application/json')
+
+
+async def get_documents(request):
+    t = []
+    async for document in conn.run_iter(conn.db().table('documents', read_mode='majority')):
+        t.append(document)
     return web.Response(status=200,
                         text=json.dumps(t),
                         content_type='application/json')
@@ -111,8 +127,10 @@ if __name__ == '__main__':
         with open(os.path.join(static_path, 'spa-entry.html')) as f:
             indexfile = f.read()
 
+
         async def index(request):
             return web.Response(text=indexfile, content_type='text/html')
+
 
         app.router.add_get('/', index)
         app.router.add_static('/resources', os.path.join(static_path, 'resources'))
@@ -128,5 +146,7 @@ if __name__ == '__main__':
     app.router.add_post('/api/v1/auth', api_auth)
     app.router.add_post('/api/v1/usercreate', api_create_user)
     app.router.add_get('/api/v1/tasks', get_tasks)
+    app.router.add_get('/api/v1/documents', get_documents)
+    app.router.add_post('/api/v1/documents', set_document)
 
     web.run_app(app, host='0.0.0.0', port=5000)
