@@ -29,7 +29,8 @@ async def db_get_running_image(service_name, service_conf=None, glob=None):  # T
                                      .order_by('id')  # Sort by id. TODO: Should be 'time'
                                      .limit(1)  # Top result
                                      .pluck('image-name'))  # Return only the field 'image-name'
-    return db_res[0] if db_res else ''
+
+    return db_res[0] if db_res else {}
 
 
 # -- web request functions --

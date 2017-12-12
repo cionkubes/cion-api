@@ -32,19 +32,22 @@ async def db_get_service_conf(service_name):
 async def get_service(request):
     service_name = request.match_info['name']
     service_conf = await db_get_service_conf(service_name)
-    print(service_name)
-    print(service_conf)
 
     glob = (await db_get_document('glob'))['document']
+
+    if not service_conf:
+        return web.Response(status=404,
+                            text='Service is not configured',
+                            content_type='text/plain')
+
+    envs = {}
+    for k in service_conf['environments']:
+        db_res = await tasks.db_get_running_image(service_name, service_conf, glob)
+        envs[k] = db_res['image-name'] if 'image-name' in db_res else 'NA'
+
     data = {
-        'environments': {
-            k: (await tasks.db_get_running_image(service_name, service_conf, glob))['image-name']
-            for k in service_conf['environments']
-        }
+        'environments': envs
     }
-
-    print(data)
-
     return web.Response(status=200,
                         text=json.dumps(data),
                         content_type='application/json')
