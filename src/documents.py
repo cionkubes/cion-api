@@ -33,11 +33,12 @@ async def get_service(request):
     service_name = request.match_info['name']
     service_conf = await db_get_service_conf(service_name)
 
-    glob = (await db_get_document('glob'))['document']
     if not service_conf:
         return web.Response(status=404,
                             text='Service is not configured',
                             content_type='text/plain')
+
+    glob = (await db_get_document('glob'))['document']
 
     envs = {}
     db_res = await tasks.db_get_running_image(service_name, service_conf=service_conf, glob=glob)
@@ -48,7 +49,8 @@ async def get_service(request):
             envs[env] = db_res[env]
 
     data = {
-        'environments': envs
+        'environments': envs,
+        'images-deployed': await tasks.db_get_unique_deployed_images(service_name, service_conf=service_conf, glob=glob)
     }
     return web.Response(status=200,
                         text=json.dumps(data),
