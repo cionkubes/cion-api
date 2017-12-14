@@ -8,8 +8,6 @@ import rdb_conn
 import rethinkdb as r
 
 
-# -- db request functions --
-
 def task_base_image_name_filter(glob, image_base_name):
     def task_filter(task):
         # 1. Capture part of image-name that should match the image-name from the service conf
@@ -17,6 +15,21 @@ def task_base_image_name_filter(glob, image_base_name):
         return task['image-name'].match(glob)['groups'][0]['str'].match(image_base_name)
 
     return task_filter
+
+
+# -- db request functions --
+
+
+async def db_create_task(image, environment):
+    data = {
+        'image-name': image,
+        'event': 'new-image',  # TODO: should event type be something else?
+        'status': 'ready',
+        'environment': environment,
+        'time': r.now().to_epoch_time()
+    }
+
+    return await rdb_conn.conn.run(r.db('cion').table('tasks').insert(data))
 
 
 async def db_get_running_image(service_name, environment=None, service_conf=None, glob=None):  # TODO: refactor
@@ -68,6 +81,14 @@ async def db_get_unique_deployed_images(service_name, service_conf=None, glob=No
 
 
 # -- web request functions --
+
+async def create_task(request):
+    bod = await request.json()
+    db_res = await db_create_task(bod['image'], bod['environment'])
+    return web.Response(status=200,
+                        text=json.dumps(db_res),
+                        content_type='application/json')
+
 
 async def get_tasks(request):
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks').order_by(r.desc('time')))

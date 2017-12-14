@@ -3,7 +3,7 @@ from aiohttp import web
 import rdb_conn
 import websocket
 from documents import get_documents, set_document, get_document, get_service
-from tasks import get_tasks, get_running_image
+from tasks import get_tasks, get_running_image, create_task
 from user import api_auth, api_create_user
 
 app = web.Application()
@@ -38,6 +38,7 @@ if __name__ == '__main__':
     app.router.add_post('/api/v1/usercreate', api_create_user)
 
     app.router.add_get('/api/v1/tasks', get_tasks)
+    app.router.add_post('/api/v1/create/task', create_task)
 
     app.router.add_get('/api/v1/documents', get_documents)
     app.router.add_post('/api/v1/documents', set_document)
