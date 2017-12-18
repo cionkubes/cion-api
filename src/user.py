@@ -9,7 +9,7 @@ from aiohttp import web
 import rdb_conn
 
 resp_bad_creds = web.Response(status=401,
-                              text=json.dumps({'reason': 'Bad credentials.'}),
+                              text="{\"reason\": \"Bad credentials.\"}",
                               content_type='application/json')
 
 sessions = {}

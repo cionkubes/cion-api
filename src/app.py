@@ -35,7 +35,7 @@ if __name__ == '__main__':
     app.router.add_get('/api/v1/socket', wsroute)
 
     app.router.add_post('/api/v1/auth', api_auth)
-    app.router.add_post('/api/v1/usercreate', api_create_user)
+    app.router.add_post('/api/v1/create/user', api_create_user)
 
     app.router.add_get('/api/v1/tasks', get_tasks)
     app.router.add_post('/api/v1/create/task', create_task)
