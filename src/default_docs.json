@@ -1,0 +1,31 @@
+[
+  {
+    "name": "swarms",
+    "document": {
+      "prod": {
+        "sign": true,
+        "tag-match": "\\d+\\.\\d+\\.\\d+",
+        "tls": {
+          "ca": "/",
+          "cert": "/",
+          "key": "/",
+          "url": "tcp://localhost:2376"
+        }
+      },
+      "qa": {
+        "sign": false,
+        "tag-match": "\\d+\\.\\d+\\.\\d+-rc.*",
+        "tls": {
+          "ca": "/run/secrets/ca.pem",
+          "cert": "/run/secrets/qa.cert.pem",
+          "key": "/run/secrets/qa.key.pem",
+          "url": "tcp://10.68.4.60:2376"
+        }
+      }
+    }
+  },
+  {
+    "name": "glob",
+    "document": "tiptk/tipimages:(.*)_(.*)"
+  }
+]
