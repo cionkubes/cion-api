@@ -6,6 +6,7 @@ from services import get_service, delete_service, get_running_image, get_service
 from documents import get_documents, set_document, get_document
 from tasks import get_tasks, create_task
 from user import api_auth, api_create_user
+from cion_system import get_health
 
 app = web.Application()
 
@@ -51,5 +52,7 @@ if __name__ == '__main__':
     app.router.add_get('/api/v1/service/{name}', get_service)
     app.router.add_put('/api/v1/service/{name}/edit', edit_service)
     app.router.add_delete('/api/v1/service/{name}', delete_service)
+
+    app.router.add_get('/api/v1/health', get_health)
 
     web.run_app(app, host='0.0.0.0', port=5000)
