@@ -3,14 +3,11 @@ import hashlib
 import json
 import os
 import random
+from functools import wraps
 
 from aiohttp import web
 
 import rdb_conn
-
-resp_bad_creds = web.Response(status=401,
-                              text="{\"reason\": \"Bad credentials.\"}",
-                              content_type='application/json')
 
 sessions = {}
 
@@ -36,10 +33,37 @@ def hash_str(to_hash: str, salt, iterations):
     return hashlib.pbkdf2_hmac('sha512', to_hash.encode(), salt, iterations, 128)
 
 
+def bad_creds_response():
+    return web.Response(status=401,
+                        text="{\"error\": \"Bad credentials.\"}",
+                        content_type='application/json')
+
+
+def requires_auth(f):
+    @wraps(f)
+    async def wrapper(request):
+        token = request.headers.get('X-CSRF-Token')
+        if token not in sessions:
+            return bad_creds_response()
+        return await f(request)
+
+    return wrapper
+
+
+@requires_auth
 async def api_create_user(request):
     bod = await request.json()
     username = bod['username']
-    pw_hash, salt, iterations = create_hash(bod['password'])
+    
+    if not username:
+        return web.Response(status=422, text='{"error": "Username cannot be empty"}')
+    
+    password = bod['password']
+
+    if not password:
+        return web.Response(status=422, text='{"error": "Password cannot be empty"}')
+
+    pw_hash, salt, iterations = create_hash(password)
 
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('users').insert({
         "username": username,
@@ -48,29 +72,32 @@ async def api_create_user(request):
         "iterations": iterations
     }))
 
-    print(db_res)
+    if 'errors' in db_res and db_res['errors']:
+        if db_res['first_error'].find('Duplicate primary key') > -1:
+            text = f'User \'{username}\' already exists'
+        else:
+            text = 'Something went wrong when inserting in database'
+        return web.Response(status=422, text=json.dumps({'error': text}))
 
-    return web.Response(status=201)
+    return web.Response(status=201, text=json.dumps(db_res), content_type='application/json')
 
 
 async def api_auth(request):
     bod = await request.json()
     username = bod['username']
     password = bod['password']
-
     user = await rdb_conn.conn.run(rdb_conn.conn.db().table('users').get(username))
 
     if not user:
-        return resp_bad_creds
+        return bad_creds_response()
 
     salt = user['salt']
     iterations = user['iterations']
     stored_hash = user['password_hash']
-
     input_hash = hash_str(password, salt, iterations)
-
     if not input_hash == stored_hash:
-        return resp_bad_creds
+        print('password incorrect')
+        return bad_creds_response()
 
     token = create_session(user)
     return web.Response(status=200,
