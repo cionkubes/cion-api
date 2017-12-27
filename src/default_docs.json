@@ -1,6 +1,7 @@
 [
   {
     "name": "swarms",
+    "plaintext-editable": true,
     "document": {
       "prod": {
         "sign": true,
@@ -26,6 +27,17 @@
   },
   {
     "name": "glob",
+    "plaintext-editable": true,
     "document": "tiptk/tipimages:(.*)_(.*)"
+  },
+  {
+    "name": "services",
+    "plaintext-editable": false,
+    "document": {
+      "cion-test": {
+        "environments": ["prod"],
+        "image-name": "cion_test"
+      }
+    }
   }
 ]

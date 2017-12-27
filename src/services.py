@@ -4,7 +4,6 @@ import re
 import rethinkdb as r
 from aiohttp import web
 
-import documents
 import rdb_conn
 
 
@@ -31,75 +30,61 @@ def task_base_image_name_filter(glob, image_base_name):
 # database functions
 
 async def db_get_service_conf(service_name):
-    return await rdb_conn.conn.run(rdb_conn.conn.db().table('services').get(service_name))
+    return await rdb_conn.conn.run(rdb_conn.conn.db()
+            .table('documents')
+            .get('services')['document'][service_name])
 
 
 async def db_create_service(service_name, environments, image_name):
-    data = {'name': service_name, 'environments': environments, 'image-name': image_name}
-    return await rdb_conn.conn.run(rdb_conn.conn.db().table('services').insert(data))
+    return await db_replace_service(service_name, environments, image_name)
 
 
 async def db_replace_service(service_name, environments, image_name):
-    data = {'name': service_name, 'environments': environments, 'image-name': image_name}
-    return await rdb_conn.conn.run(rdb_conn.conn.db().table('services').get(service_name).replace(data))
+    data = {
+        'environments': environments,
+        'image-name': image_name
+    }
+
+    return await rdb_conn.conn.run(rdb_conn.conn.db().table('documents').get("services").update(
+        {"document": {service_name: data}}
+    ))
 
 
-async def db_get_running_image(service_name, service_conf=None, glob=None):
-    if not service_conf:
-        service_conf = await db_get_service_conf(service_name)
-
-    if not service_conf:
-        return ''
-
-    if not glob:
-        glob = (await documents.db_get_document('glob'))['document']
-
-    image_base_name = service_conf['image-name']
-
-    task_filter = task_base_image_name_filter(glob, image_base_name)
-
+async def db_get_running_image(service_name):
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')  # All tasks
                                      # filter for update-tasks that were completed successfully
-                                     .filter({'status': 'done', 'event': 'update-service'})
-                                     .filter(task_filter)  # Filter by image-name
+                                     .filter({'status': 'done', 'event': 'update-service', 'service-name': service_name})
                                      .group('environment')  # group by environment
-                                     .order_by(r.desc('time'))  # Sort each group by time
-                                     .limit(1)  # Top result from each group
+                                     .order_by(r.desc('time'))  # Sort tasks by time
+                                     .limit(1)  # Select only newest tasks
                                      .pluck('image-name', 'time')  # only return image-name and time
                                      )
-    return {key: val[0] for key, val in db_res.items()}
+
+    return {key: val.get("0", None) for key, val in db_res.items()}
 
 
-async def db_get_unique_deployed_images(service_name, service_conf=None, glob=None):
-    if not service_conf:
-        service_conf = await db_get_service_conf(service_name)
-
-    if not service_conf:
-        return ''
-
-    if not glob:
-        glob = (await documents.db_get_document('glob'))['document']
-
-    image_base_name = service_conf['image-name']
-    task_filter = task_base_image_name_filter(glob, image_base_name)
-
-    db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')
-                                     .pluck('image-name')
-                                     .distinct()
-                                     .filter(task_filter)
-                                     .order_by(r.desc('image-name'))
-                                     .map(lambda task: task['image-name'])
-                                     )
-    return db_res
+async def db_get_unique_deployed_images(service_name):
+    return await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')
+                                    .filter({'status': 'done', 'event': 'update-service', 'service-name': service_name})
+                                    .pluck('image-name')
+                                    .distinct()
+                                    .order_by(r.desc('image-name'))
+                                    .map(lambda task: task['image-name'])
+                                    )
 
 
 async def db_get_services():
-    return await rdb_conn.conn.run(rdb_conn.conn.db().table('services').order_by(r.desc('name')))
+    db_res = await rdb_conn.conn.run(rdb_conn.conn.db()
+                                   .table('documents')
+                                   .get('services')['document'])
+
+    return [{"name": name, **service} for name, service in db_res.items()]
 
 
 async def db_delete_service(service_name):
-    return await rdb_conn.conn.run(rdb_conn.conn.db().table('services').get(service_name).delete())
-
+    return await rdb_conn.conn.run(rdb_conn.conn.db().table('documents')
+                                   .get('services')
+                                   .replace(r.row.without({'document': {service_name: True}})))
 
 # -- web request functions --
 
@@ -132,10 +117,8 @@ async def get_service(request):
                             text='Service is not configured',
                             content_type='text/plain')
 
-    glob = (await documents.db_get_document('glob'))['document']
-
     envs = {}
-    db_res = await db_get_running_image(service_name, service_conf=service_conf, glob=glob)
+    db_res = await db_get_running_image(service_name)
     for env in sorted(service_conf['environments']):
         if env not in db_res:
             envs[env] = {'image-name': 'NA', 'time': None}
@@ -144,7 +127,7 @@ async def get_service(request):
 
     data = {
         'environments': envs,
-        'images-deployed': await db_get_unique_deployed_images(service_name, service_conf=service_conf, glob=glob)
+        'images-deployed': await db_get_unique_deployed_images(service_name)
     }
     return web.Response(status=200,
                         text=json.dumps(data),

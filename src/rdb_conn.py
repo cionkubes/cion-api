@@ -52,7 +52,6 @@ async def _init_database():
 
     await ensure_db_exists('cion')
     await ensure_table_exists('tasks')
-    await ensure_table_exists('services', primary_key='name')
     with open('default_docs.json', 'r') as default:
         await ensure_table_exists('documents', primary_key='name',
                                   func=r.db('cion').table('documents').insert(json.load(default)))
