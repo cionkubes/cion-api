@@ -7,6 +7,7 @@ import rdb_conn
 
 
 # -- db request functions --
+from auth import requires_auth
 
 
 async def db_create_task(image, environment, service_name):
@@ -24,6 +25,7 @@ async def db_create_task(image, environment, service_name):
 
 # -- web request functions --
 
+@requires_auth
 async def create_task(request):
     bod = await request.json()
     db_res = await db_create_task(bod['image-name'], bod['environment'], bod['service-name'])
@@ -32,6 +34,7 @@ async def create_task(request):
                         content_type='application/json')
 
 
+@requires_auth
 async def get_tasks(request):
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks').filter(request.match_info['event']).order_by(r.desc('time')))
     return web.Response(status=200,

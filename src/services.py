@@ -5,6 +5,7 @@ import rethinkdb as r
 from aiohttp import web
 
 import rdb_conn
+from auth import requires_auth
 
 
 def check_url_safe(string):
@@ -86,8 +87,10 @@ async def db_delete_service(service_name):
                                    .get('services')
                                    .replace(r.row.without({'document': {service_name: True}})))
 
+
 # -- web request functions --
 
+@requires_auth
 async def get_services(request):
     db_res = await db_get_services()
     return web.Response(status=200,
@@ -95,6 +98,7 @@ async def get_services(request):
                         content_type='application/json')
 
 
+@requires_auth
 async def get_running_image(request):
     service_name = request.match_info['name']
     db_res = await db_get_running_image(service_name)
@@ -108,14 +112,15 @@ async def get_running_image(request):
                         content_type='application/json')
 
 
+@requires_auth
 async def get_service(request):
     service_name = request.match_info['name']
     service_conf = await db_get_service_conf(service_name)
 
     if not service_conf:
         return web.Response(status=404,
-                            text='Service is not configured',
-                            content_type='text/plain')
+                            text='{"error": "Service is not configured"}',
+                            content_type='application/json')
 
     envs = {}
     db_res = await db_get_running_image(service_name)
@@ -134,6 +139,7 @@ async def get_service(request):
                         content_type='application/json')
 
 
+@requires_auth
 async def create_service(request):
     bod = await request.json()
 
@@ -149,6 +155,7 @@ async def create_service(request):
     return web.Response(status=201, text=json.dumps(db_res))
 
 
+@requires_auth
 async def edit_service(request):
     bod = await request.json()
     envs = bod['environments']
@@ -163,6 +170,7 @@ async def edit_service(request):
     return web.Response(status=200, text=json.dumps(db_res))
 
 
+@requires_auth
 async def delete_service(request):
     service_name = request.match_info['name']
     db_res = await db_delete_service(service_name)

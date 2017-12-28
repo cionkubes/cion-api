@@ -5,7 +5,7 @@ import websocket
 from services import get_service, delete_service, get_running_image, get_services, create_service, edit_service
 from documents import get_documents, set_document, get_document
 from tasks import get_tasks, create_task
-from user import api_auth, api_create_user
+from auth import api_auth, api_create_user
 from cion_system import get_health
 
 app = web.Application()

@@ -77,7 +77,7 @@ async def api_create_user(request):
             text = f'User \'{username}\' already exists'
         else:
             text = 'Something went wrong when inserting in database'
-        return web.Response(status=422, text=json.dumps({'error': text}))
+        return web.Response(status=422, text=json.dumps({'error': text}), content_type='application/json')
 
     return web.Response(status=201, text=json.dumps(db_res), content_type='application/json')
 
