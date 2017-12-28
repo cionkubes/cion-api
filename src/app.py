@@ -3,7 +3,7 @@ from aiohttp import web
 import rdb_conn
 import websocket
 from services import get_service, delete_service, get_running_image, get_services, create_service, edit_service
-from documents import get_documents, set_document
+from documents import get_documents, set_document, get_document
 from tasks import get_tasks, create_task
 from user import api_auth, api_create_user
 from cion_system import get_health
@@ -44,6 +44,7 @@ if __name__ == '__main__':
 
     app.router.add_get('/api/v1/documents', get_documents)
     app.router.add_post('/api/v1/documents', set_document)
+    app.router.add_get('/api/v1/document/{name}', get_document)
 
     app.router.add_get('/api/v1/services', get_services)
     app.router.add_post('/api/v1/services/create', create_service)
