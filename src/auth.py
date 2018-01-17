@@ -12,6 +12,19 @@ import rdb_conn
 sessions = {}
 
 
+async def db_create_user(username, password):
+    pw_hash, salt, iterations = create_hash(password)
+
+    db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('users').insert({
+        "username": username,
+        "password_hash": pw_hash,
+        "salt": salt,
+        "iterations": iterations
+    }))
+
+    return db_res
+
+
 def create_session(user):
     token = binascii.hexlify(os.urandom(64)).decode()
     sessions[token] = user
@@ -63,14 +76,7 @@ async def api_create_user(request):
     if not password:
         return web.Response(status=422, text='{"error": "Password cannot be empty"}')
 
-    pw_hash, salt, iterations = create_hash(password)
-
-    db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('users').insert({
-        "username": username,
-        "password_hash": pw_hash,
-        "salt": salt,
-        "iterations": iterations
-    }))
+    db_res = await db_create_user(username, password)
 
     if 'errors' in db_res and db_res['errors']:
         if db_res['first_error'].find('Duplicate primary key') > -1:

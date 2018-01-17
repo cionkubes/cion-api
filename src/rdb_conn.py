@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+import auth
 import rethinkdb as r
 from rethink_async import connection
 import os
@@ -47,6 +48,17 @@ async def ensure_db_exists(db_name):
     )
 
 
+def create_admin_user_insert():
+    pw_hash, salt, iterations = auth.create_hash('admin')
+
+    return {
+        "username": 'admin',
+        "password_hash": pw_hash,
+        "salt": salt,
+        "iterations": iterations
+    }
+
+
 async def _init_database():
     logger.info('Initializing database')
 
@@ -55,5 +67,6 @@ async def _init_database():
     with open('default_docs.json', 'r') as default:
         await ensure_table_exists('documents', primary_key='name',
                                   func=r.db('cion').table('documents').insert(json.load(default)))
-    await ensure_table_exists('users', primary_key='username')
+    await ensure_table_exists('users', primary_key='username',
+                              func=r.db('cion').table('users').insert(create_admin_user_insert()))
     logger.info('Database initialization complete')
