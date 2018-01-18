@@ -48,7 +48,7 @@ def hash_str(to_hash: str, salt, iterations):
 
 def bad_creds_response():
     return web.Response(status=401,
-                        text="{\"error\": \"Bad credentials.\"}",
+                        text='{"error": "Bad credentials."}',
                         content_type='application/json')
 
 
@@ -109,3 +109,16 @@ async def api_auth(request):
     return web.Response(status=200,
                         text=json.dumps({'token': token}),
                         content_type='application/json')
+
+
+async def logout(request):
+    token = request.headers.get('X-CSRF-Token')
+    user = sessions.pop(token, False)
+    if user:
+        return web.Response(status=200,
+                            text=json.dumps({'message': 'session popped; user was logged out'}),
+                            content_type='application/json')
+    else:
+        return web.Response(status=200,
+                            text=json.dumps({'message': 'token does not exist, so user has no session'}),
+                            content_type='application/json')
