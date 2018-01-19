@@ -67,10 +67,10 @@ def requires_auth(f):
 async def api_create_user(request):
     bod = await request.json()
     username = bod['username']
-    
+
     if not username:
         return web.Response(status=422, text='{"error": "Username cannot be empty"}')
-    
+
     password = bod['password']
 
     if not password:
@@ -107,7 +107,12 @@ async def api_auth(request):
 
     token = create_session(user)
     return web.Response(status=200,
-                        text=json.dumps({'token': token}),
+                        text=json.dumps({
+                            'token': token,
+                            'user': {
+                                'username': user['username']
+                            }
+                        }),
                         content_type='application/json')
 
 
