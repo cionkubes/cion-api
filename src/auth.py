@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import random
+import urllib.parse
 from functools import wraps
 
 from aiohttp import web
@@ -106,11 +107,26 @@ async def api_auth(request):
         return bad_creds_response()
 
     token = create_session(user)
+
+    if 'gravatar-email' not in user or not user['gravatar-email']:
+        gravatar_email = ''
+        gravatar_base = username
+    else:
+        gravatar_base = user['gravatar-email']
+        gravatar_email = gravatar_base
+
+    gravatar_base = gravatar_base.lower().encode('utf-8')
+
+    gravatar_url = "https://www.gravatar.com/avatar/" + hashlib.md5(gravatar_base).hexdigest() + "?"
+    gravatar_url += urllib.parse.urlencode({'d': 'identicon', 's': str(200)})  # TODO: dynamic size
+
     return web.Response(status=200,
                         text=json.dumps({
                             'token': token,
                             'user': {
-                                'username': user['username']
+                                'username': user['username'],
+                                'gravatar-url': gravatar_url,
+                                'gravatar-email': gravatar_email
                             }
                         }),
                         content_type='application/json')
