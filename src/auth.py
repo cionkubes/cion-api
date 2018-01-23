@@ -6,6 +6,7 @@ import random
 import urllib.parse
 from functools import wraps
 
+import rethinkdb as r
 from aiohttp import web
 
 import rdb_conn
@@ -20,7 +21,8 @@ async def db_create_user(username, password):
         "username": username,
         "password_hash": pw_hash,
         "salt": salt,
-        "iterations": iterations
+        "iterations": iterations,
+        "time_created": r.now().to_epoch_time()
     }))
 
     return db_res
@@ -44,7 +46,12 @@ def create_hash(to_hash: str):
 
 
 def hash_str(to_hash: str, salt, iterations):
-    return hashlib.pbkdf2_hmac('sha512', to_hash.encode(), salt, iterations, 128)
+    return hashlib.pbkdf2_hmac(
+        'sha512',
+        to_hash.encode(),
+        salt,
+        iterations,
+        128)
 
 
 def bad_creds_response():
@@ -70,12 +77,22 @@ async def api_create_user(request):
     username = bod['username']
 
     if not username:
-        return web.Response(status=422, text='{"error": "Username cannot be empty"}')
+        return web.Response(status=422,
+                            text='{"error": "Username cannot be empty"}',
+                            content_type='application/json')
 
     password = bod['password']
 
     if not password:
-        return web.Response(status=422, text='{"error": "Password cannot be empty"}')
+        return web.Response(status=422,
+                            text='{"error": "Password cannot be empty"}',
+                            content_type='application/json')
+
+    if len(password) < 8:
+        return web.Response(status=422,
+                            text='{"error": "Password must be at least 8 '
+                                 'characters long"}',
+                            content_type='application/json')
 
     db_res = await db_create_user(username, password)
 
@@ -84,16 +101,23 @@ async def api_create_user(request):
             text = f'User \'{username}\' already exists'
         else:
             text = 'Something went wrong when inserting in database'
-        return web.Response(status=422, text=json.dumps({'error': text}), content_type='application/json')
+        return web.Response(status=422,
+                            text=json.dumps({'error': text}),
+                            content_type='application/json')
 
-    return web.Response(status=201, text=json.dumps(db_res), content_type='application/json')
+    return web.Response(status=201,
+                        text=json.dumps(db_res),
+                        content_type='application/json')
 
 
 async def api_auth(request):
     bod = await request.json()
     username = bod['username']
     password = bod['password']
-    user = await rdb_conn.conn.run(rdb_conn.conn.db().table('users').get(username))
+    user = await rdb_conn.conn.run(rdb_conn.conn.db()
+                                   .table('users')
+                                   .get(username)
+                                   )
 
     if not user:
         return bad_creds_response()
@@ -117,8 +141,11 @@ async def api_auth(request):
 
     gravatar_base = gravatar_base.lower().encode('utf-8')
 
-    gravatar_url = "https://www.gravatar.com/avatar/" + hashlib.md5(gravatar_base).hexdigest() + "?"
-    gravatar_url += urllib.parse.urlencode({'d': 'identicon', 's': str(200)})  # TODO: dynamic size
+    gravatar_url = "https://www.gravatar.com/avatar/" \
+                   + hashlib.md5(gravatar_base).hexdigest() \
+                   + "?" \
+                   + urllib.parse.urlencode({'d': 'identicon', 's': str(200)})
+    # TODO: dynamic size
 
     return web.Response(status=200,
                         text=json.dumps({
@@ -137,9 +164,16 @@ async def logout(request):
     user = sessions.pop(token, False)
     if user:
         return web.Response(status=200,
-                            text=json.dumps({'message': 'session popped; user was logged out'}),
+                            text=json.dumps({
+                                'message':
+                                    'session popped; user was logged out'
+                            }),
                             content_type='application/json')
     else:
         return web.Response(status=200,
-                            text=json.dumps({'message': 'token does not exist, so user has no session'}),
+                            text=json.dumps({
+                                'message':
+                                    'token does not exist, so user has no '
+                                    'session'
+                            }),
                             content_type='application/json')
