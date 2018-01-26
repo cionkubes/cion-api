@@ -94,6 +94,13 @@ async def api_create_user(request):
                                  'characters long"}',
                             content_type='application/json')
 
+    repeat_password = bod['repeat-password']
+    if not repeat_password == password:
+        return web.Response(status=422,
+                            text='{"error": "Password and repeat-password '
+                                 'must match"}',
+                            content_type='application/json')
+
     db_res = await db_create_user(username, password)
 
     if 'errors' in db_res and db_res['errors']:

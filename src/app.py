@@ -7,7 +7,7 @@ from documents import get_documents, set_document, get_document
 from tasks import get_tasks, create_task
 from auth import api_auth, api_create_user, logout
 from cion_system import get_health
-from user import set_gravatar_email, get_users
+from user import set_gravatar_email, get_users, delete_user, change_password
 
 app = web.Application()
 
@@ -43,6 +43,8 @@ if __name__ == '__main__':
 
     app.router.add_post('/api/v1/user/setgravataremail', set_gravatar_email)
     app.router.add_get('/api/v1/users', get_users)
+    app.router.add_put('/api/v1/user/{name}/setpassword', change_password)
+    app.router.add_delete('/api/v1/user/{name}', delete_user)
 
     app.router.add_get('/api/v1/tasks/{event}', get_tasks)
     app.router.add_post('/api/v1/create/task', create_task)
