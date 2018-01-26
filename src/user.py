@@ -79,9 +79,8 @@ async def get_users(request):
     if 'errors' in db_res and db_res['errors']:
         return web.Response(status=422,
                             text=json.dumps({
-                                'message': 'Error getting '
-                                           'users from the '
-                                           'database'}),
+                                'error': 'Error getting users from the '
+                                         'database'}),
                             content_type='application/json')
 
     return web.Response(status=200,
@@ -97,7 +96,7 @@ async def change_password(request):
     if not pw == pw_rep:
         return web.Response(status=422,
                             text=json.dumps(
-                                {'error': 'passwords do not match'}),
+                                {'error': 'Passwords do not match'}),
                             content_type='application/json')
 
     username = request.match_info['name']
@@ -105,7 +104,7 @@ async def change_password(request):
     if 'errors' in db_res and db_res['errors']:
         return web.Response(status=422,
                             text=json.dumps({
-                                'message': 'Error setting password'}),
+                                'error': 'Error setting password'}),
                             content_type='application/json')
 
     return web.Response(status=200,
@@ -116,12 +115,19 @@ async def change_password(request):
 @requires_auth
 async def delete_user(request):
     username = request.match_info['name']
+
+    if username == "admin":
+        return web.Response(status=422,
+                            text=json.dumps({
+                                'error': 'You cannot delete the admin user'}),
+                            content_type='application/json')
+
     db_res = await db_delete_user(username)
 
     if 'errors' in db_res and db_res['errors']:
         return web.Response(status=422,
                             text=json.dumps({
-                                'message': 'Error deleting user'}),
+                                'error': 'Error deleting user'}),
                             content_type='application/json')
 
     return web.Response(status=200,

@@ -55,7 +55,8 @@ def create_admin_user_insert():
         "username": 'admin',
         "password_hash": pw_hash,
         "salt": salt,
-        "iterations": iterations
+        "iterations": iterations,
+        "time_created": r.now().to_epoch_time()
     }
 
 
@@ -66,7 +67,11 @@ async def _init_database():
     await ensure_table_exists('tasks')
     with open('default_docs.json', 'r') as default:
         await ensure_table_exists('documents', primary_key='name',
-                                  func=r.db('cion').table('documents').insert(json.load(default)))
+                                  func=r.db('cion').table('documents').insert(
+                                      json.load(default))
+                                  )
     await ensure_table_exists('users', primary_key='username',
-                              func=r.db('cion').table('users').insert(create_admin_user_insert()))
+                              func=r.db('cion').table('users').insert(
+                                  create_admin_user_insert())
+                              )
     logger.info('Database initialization complete')
