@@ -3,18 +3,9 @@
     "name": "swarms",
     "plaintext-editable": true,
     "document": {
-      "prod": {
-        "sign": true,
-        "tag-match": "\\d+\\.\\d+\\.\\d+",
-        "tls": {
-          "ca": "/",
-          "cert": "/",
-          "key": "/",
-          "url": "tcp://localhost:2376"
-        }
-      },
       "qa": {
         "sign": false,
+        "mode": "tls",
         "tag-match": "\\d+\\.\\d+\\.\\d+-rc.*",
         "tls": {
           "ca": "/run/secrets/ca.pem",

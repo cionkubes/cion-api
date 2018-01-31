@@ -37,7 +37,6 @@ async def create_task(request):
 @requires_auth
 async def get_tasks(request):
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')
-                                     .filter(request.match_info['event'])
                                      .order_by(r.desc('time'))
                                      )
     return web.Response(status=200,

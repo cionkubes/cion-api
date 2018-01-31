@@ -46,7 +46,7 @@ if __name__ == '__main__':
     app.router.add_put('/api/v1/user/{name}/setpassword', change_password)
     app.router.add_delete('/api/v1/user/{name}', delete_user)
 
-    app.router.add_get('/api/v1/tasks/{event}', get_tasks)
+    app.router.add_get('/api/v1/tasks', get_tasks)
     app.router.add_post('/api/v1/create/task', create_task)
 
     app.router.add_get('/api/v1/documents', get_documents)
