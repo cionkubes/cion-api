@@ -42,9 +42,62 @@ async def db_delete_user(username):
     )
 
 
+async def db_get_permissions(username):
+    return await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('users').get(username).pluck('permissions')
+    )
+
+
+async def db_set_permissions(username, permissions):
+    return await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('users').get(username).update(
+            {'permissions': r.literal(permissions)})
+    )
+
+
 def bad_creds_response():
     return web.Response(status=401,
                         text='{"error": "Bad credentials."}',
+                        content_type='application/json')
+
+
+@requires_auth
+async def get_permissions(request):
+    username = request.match_info['username']
+    permissions = await db_get_permissions(username)
+
+    if 'errors' in permissions and permissions['errors']:
+        return web.Response(status=404,
+                            text=json.dumps({
+                                'message': 'No user with that username '
+                                           'exists or other database error '
+                                           'occured'}),
+                            content_type='application/json')
+
+    return web.Response(status=200,
+                        text=json.dumps(permissions),
+                        content_type='application/json')
+
+
+@requires_auth
+async def set_permissions(request):
+    username = request.match_info['username']
+    bod = await request.json()
+    permissions = bod['permissions']
+
+    db_res = await db_set_permissions(username, permissions)
+
+    if 'errors' in db_res and db_res['errors']:
+        return web.Response(status=404,
+                            text=json.dumps({
+                                'message': 'No user with that username '
+                                           'exists or other database error '
+                                           'occured'}),
+                            content_type='application/json')
+
+    return web.Response(status=200,
+                        text=json.dumps(
+                            {'message': 'Permissions successfully updates'}),
                         content_type='application/json')
 
 
