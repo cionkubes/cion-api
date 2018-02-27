@@ -3,7 +3,7 @@ import json
 
 import auth
 import rethinkdb as r
-from rethink_async import connection
+from async_rethink import connection
 import os
 from logzero import logger
 
