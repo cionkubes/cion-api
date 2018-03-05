@@ -23,11 +23,9 @@ if __name__ == '__main__':
     if not prod:
         static_path = os.path.join(os.environ['WEB_DIR'], 'lib')
 
-        with open(os.path.join(static_path, 'spa-entry.html')) as f:
-            indexfile = f.read()
-
-
         async def index(request):
+            with open(os.path.join(static_path, 'spa-entry.html')) as f:
+                indexfile = f.read()
             return web.Response(text=indexfile, content_type='text/html')
 
 
