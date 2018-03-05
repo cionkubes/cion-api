@@ -21,7 +21,7 @@ if __name__ == '__main__':
     prod = len(sys.argv) > 1 and sys.argv[1].lower() == 'prod'
 
     if not prod:
-        static_path = os.path.join('..', '..', 'frontend', 'src', 'www')
+        static_path = os.path.join(os.environ['WEB_DIR'], 'lib')
 
         with open(os.path.join(static_path, 'spa-entry.html')) as f:
             indexfile = f.read()
