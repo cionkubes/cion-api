@@ -7,7 +7,7 @@ from services import get_service, delete_service, get_running_image, \
 from documents import get_documents, set_document, get_document, \
     get_permission_def
 from tasks import get_tasks, create_task
-from auth import api_auth, api_create_user, logout
+from auth import api_auth, api_create_user, logout, verify_token
 from cion_system import get_health
 from user import set_gravatar_email, get_users, delete_user, change_password, \
     get_permissions, set_permissions
@@ -40,6 +40,7 @@ if __name__ == '__main__':
     app.router.add_get('/api/v1/socket', ws_route)
 
     app.router.add_post('/api/v1/auth', api_auth)
+    app.router.add_get('/api/v1/verify-session', verify_token)
     app.router.add_post('/api/v1/create/user', api_create_user)
     app.router.add_post('/api/v1/logout', logout)
 

@@ -226,6 +226,14 @@ async def api_auth(request):
                         content_type='application/json')
 
 
+async def verify_token(request):
+    token = request.headers.get('X-CSRF-Token')
+    if token in sessions:
+        return web.Response(status=200)
+    else:
+        return bad_creds_response()
+
+
 async def logout(request):
     token = request.headers.get('X-CSRF-Token')
     user = sessions.pop(token, False)
