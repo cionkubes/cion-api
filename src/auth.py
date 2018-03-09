@@ -92,7 +92,7 @@ def requires_auth(func=None, permission_expr=None):
             user = sessions[token]
             if permission_expr \
                     and ('permissions' not in user
-                         or not permission_expr.has_permission(
+                         or not await permission_expr.has_permission(
                             user['permissions'], error_fn, request)):
                 return forbidden_response(error_msg)
             return await f(request)

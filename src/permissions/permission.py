@@ -6,16 +6,16 @@ class Permission:
         return self.check_fn(*args, **kwargs)
 
     def __and__(self, other):
-        def check(*args, **kwargs):
-            return self.has_permission(*args, **kwargs) \
-                   and other.has_permission(*args, **kwargs)
+        async def check(*args, **kwargs):
+            return await self.has_permission(*args, **kwargs) \
+                   and await other.has_permission(*args, **kwargs)
 
         return Permission(check)
 
     def __or__(self, other):
-        def check(*args, **kwargs):
-            return self.has_permission(*args, **kwargs) \
-                   or other.has_permission(*args, **kwargs)
+        async def check(*args, **kwargs):
+            return await self.has_permission(*args, **kwargs) \
+                   or await other.has_permission(*args, **kwargs)
 
         return Permission(check)
 
@@ -23,10 +23,10 @@ class Permission:
 def perm(path, resolve_placeholders=None):
     path_list = path.split('.')
 
-    def check(permission_tree, error_reason, request):
+    async def check(permission_tree, error_reason, request):
         print(path_list, permission_tree, sep='\n')
         if resolve_placeholders:
-            placeholder_vals = resolve_placeholders(request)
+            placeholder_vals = await resolve_placeholders(request)
 
         node = permission_tree
 
