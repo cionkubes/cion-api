@@ -3,9 +3,9 @@
     "name": "swarms",
     "plaintext-editable": true,
     "document": {
-      "qa": {
+      "test": {
         "sign": false,
-        "mode": "tls",
+        "mode": "from_env",
         "tag-match": "\\d+\\.\\d+\\.\\d+-rc.*",
         "tls": {
           "ca": "/run/secrets/ca.pem",
@@ -17,16 +17,29 @@
     }
   },
   {
-    "name": "glob",
+    "name": "repos",
     "plaintext-editable": true,
-    "document": "tiptk/tipimages:(.*)_(.*)"
+    "document": [
+      {
+        "user": "tiptk",
+        "repos": [
+          {
+            "repo": "tipimages",
+            "glob": "(tiptk)/tipimages:(.*)_(.*)",
+            "login": "/var/run/secrets/tip_user.json"
+          }
+        ]
+      }
+    ]
   },
   {
     "name": "services",
     "plaintext-editable": false,
     "document": {
       "cion-test": {
-        "environments": ["prod"],
+        "environments": [
+          "prod"
+        ],
         "image-name": "cion_test"
       }
     }
