@@ -14,7 +14,7 @@ import rdb_conn
 sessions = {}
 
 
-async def db_create_user(username, password):
+async def db_create_user(username, password, permissions):
     pw_hash, salt, iterations = create_hash(password)
 
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('users').insert({
@@ -22,7 +22,8 @@ async def db_create_user(username, password):
         "password_hash": pw_hash,
         "salt": salt,
         "iterations": iterations,
-        "time_created": r.now().to_epoch_time()
+        "time_created": r.now().to_epoch_time(),
+        'permissions': permissions
     }))
 
     return db_res
@@ -101,7 +102,12 @@ async def api_create_user(request):
                                  'must match"}',
                             content_type='application/json')
 
-    db_res = await db_create_user(username, password)
+    if 'permissions' not in bod:
+        permissions = {}
+    else:
+        permissions = bod['permissions']
+
+    db_res = await db_create_user(username, password, permissions)
 
     if 'errors' in db_res and db_res['errors']:
         if db_res['first_error'].find('Duplicate primary key') > -1:
