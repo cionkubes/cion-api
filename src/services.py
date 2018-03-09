@@ -185,9 +185,18 @@ async def edit_service(request):
     return web.Response(status=200, text=json.dumps(db_res))
 
 
-@requires_auth
+async def resolve_service_delete(request):
+    service_name = request.match_info['name']
+    srvc_conf = await db_get_service_conf(service_name)
+    print(srvc_conf)
+    return {'env': srvc_conf['environments']}
+
+
+@requires_auth(permission_expr=perm('$env.service.delete',
+                                    resolve_service_delete))
 async def delete_service(request):
     service_name = request.match_info['name']
+
     db_res = await db_delete_service(service_name)
     return web.Response(status=200,
                         text=json.dumps(db_res),

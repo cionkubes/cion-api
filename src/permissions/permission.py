@@ -21,10 +21,9 @@ class Permission:
 
 
 def perm(path, resolve_placeholders=None):
-    path_list = path.split('.')
+    path_l = path.split('.')
 
-    async def check(permission_tree, error_reason, request):
-        print(path_list, permission_tree, sep='\n')
+    async def check(permission_tree, error_reason, request, path_list=path_l):
         if resolve_placeholders:
             placeholder_vals = await resolve_placeholders(request)
 
@@ -34,7 +33,11 @@ def perm(path, resolve_placeholders=None):
             if key[0] == "$":
                 resolved = placeholder_vals[key[1:]]
                 if isinstance(resolved, list):
-                    return all(check(node[key], error_reason, request) for key in resolved)
+                    a = True
+                    for key_resolved in resolved:
+                        if key_resolved not in node or not await check(node[key_resolved], error_reason, request, path_list[1:]):
+                            a = False
+                    return a
                 else:
                     key = resolved
 
@@ -42,13 +45,7 @@ def perm(path, resolve_placeholders=None):
                 node = node[key]
             else:
                 error_reason(path)
-                print('ret false')
                 return False
-
-        print('asd')
-        print(isinstance(node, list), path_list[-1] in node)
-        print(isinstance(node, list) and (path_list[-1] in node))
-        print(isinstance(node, list) and path_list[-1] in node)
 
         return isinstance(node, list) and (path_list[-1] in node)
 
