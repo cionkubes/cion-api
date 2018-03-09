@@ -29,15 +29,19 @@ def perm(path, resolve_placeholders=None):
 
         node = permission_tree
 
-        for key in path_list[:-1]:
+        for i, key in enumerate(path_list[:-1]):
             if key[0] == "$":
                 resolved = placeholder_vals[key[1:]]
                 if isinstance(resolved, list):
-                    a = True
-                    for key_resolved in resolved:
-                        if key_resolved not in node or not await check(node[key_resolved], error_reason, request, path_list[1:]):
-                            a = False
-                    return a
+                    def recur(key_resolved):
+                        return check(
+                            node[key_resolved],
+                            error_reason,
+                            request,
+                            path_list=path_list[i + 1:])
+
+                    return all(
+                        [key in node and await recur(key) for key in resolved])
                 else:
                     key = resolved
 
