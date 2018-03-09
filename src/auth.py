@@ -121,8 +121,7 @@ async def db_create_user(username, password, permissions):
 
 # API endpoints
 
-@requires_auth(
-    permission_expr=perm('cion.user.create') & perm('cion.user.delete'))
+@requires_auth(permission_expr=perm('cion.user.create'))
 async def api_create_user(request):
     bod = await request.json()
     username = bod['username']

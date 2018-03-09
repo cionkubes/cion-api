@@ -6,6 +6,7 @@ from aiohttp import web
 import auth
 import rdb_conn
 from auth import requires_auth
+from permissions.permission import perm
 
 
 async def db_set_gravatar_email(username, gravatar_email):
@@ -165,7 +166,7 @@ async def change_password(request):
                         content_type='application/json')
 
 
-@requires_auth
+@requires_auth(permission_expr=perm('cion.user.delete'))
 async def delete_user(request):
     username = request.match_info['name']
 
