@@ -6,6 +6,7 @@ from aiohttp import web
 
 import rdb_conn
 from auth import requires_auth
+from permissions.permission import perm
 
 
 def check_url_safe(string):
@@ -21,9 +22,11 @@ def url_safe_service_image(service_name, image_name):
 
 def task_base_image_name_filter(glob, image_base_name):
     def task_filter(task):
-        # 1. Capture part of image-name that should match the image-name from the service conf
+        # 1. Capture part of image-name that should match the image-name
+        # from the service conf
         # 2. Match captured group against image-name from service conf
-        return task['image-name'].match(glob)['groups'][0]['str'].match(image_base_name)
+        return task['image-name'].match(glob)['groups'][0]['str'].match(
+            image_base_name)
 
     return task_filter
 
@@ -32,8 +35,8 @@ def task_base_image_name_filter(glob, image_base_name):
 
 async def db_get_service_conf(service_name):
     return await rdb_conn.conn.run(rdb_conn.conn.db()
-            .table('documents')
-            .get('services')['document'][service_name])
+                                   .table('documents')
+                                   .get('services')['document'][service_name])
 
 
 async def db_create_service(service_name, environments, image_name):
@@ -46,38 +49,43 @@ async def db_replace_service(service_name, environments, image_name):
         'image-name': image_name
     }
 
-    return await rdb_conn.conn.run(rdb_conn.conn.db().table('documents').get("services").update(
-        {"document": {service_name: data}}
-    ))
+    return await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('documents').get("services").update(
+            {"document": {service_name: data}}
+        ))
 
 
 async def db_get_running_image(service_name):
-    db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')  # All tasks
-                                     # filter for update-tasks that were completed successfully
-                                     .filter({'status': 'done', 'event': 'update-service', 'service-name': service_name})
-                                     .group('environment')  # group by environment
-                                     .order_by(r.desc('time'))  # Sort tasks by time
-                                     .limit(1)  # Select only newest tasks
-                                     .pluck('image-name', 'time')  # only return image-name and time
-                                     )
+    db_res = await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('tasks')  # All tasks
+        # filter for update-tasks that were completed successfully
+        .filter({'status': 'done', 'event': 'update-service',
+                 'service-name': service_name})
+        .group('environment')  # group by environment
+        .order_by(r.desc('time'))  # Sort tasks by time
+        .limit(1)  # Select only newest tasks
+        .pluck('image-name', 'time')  # only return image-name and time
+        )
 
     return {key: val.get("0", None) for key, val in db_res.items()}
 
 
 async def db_get_unique_deployed_images(service_name):
     return await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')
-                                    .filter({'status': 'done', 'event': 'update-service', 'service-name': service_name})
-                                    .pluck('image-name')
-                                    .distinct()
-                                    .order_by(r.desc('image-name'))
-                                    .map(lambda task: task['image-name'])
-                                    )
+                                   .filter(
+        {'status': 'done', 'event': 'update-service',
+         'service-name': service_name})
+                                   .pluck('image-name')
+                                   .distinct()
+                                   .order_by(r.desc('image-name'))
+                                   .map(lambda task: task['image-name'])
+                                   )
 
 
 async def db_get_services():
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db()
-                                   .table('documents')
-                                   .get('services')['document'])
+                                     .table('documents')
+                                     .get('services')['document'])
 
     return [{"name": name, **service} for name, service in db_res.items()]
 
@@ -85,7 +93,8 @@ async def db_get_services():
 async def db_delete_service(service_name):
     return await rdb_conn.conn.run(rdb_conn.conn.db().table('documents')
                                    .get('services')
-                                   .replace(r.row.without({'document': {service_name: True}})))
+                                   .replace(
+        r.row.without({'document': {service_name: True}})))
 
 
 # -- web request functions --
@@ -139,7 +148,13 @@ async def get_service(request):
                         content_type='application/json')
 
 
-@requires_auth
+async def resolve_service_create(request):
+    bod = await request.json()
+    return {'env': bod['environments']}
+
+
+@requires_auth(permission_expr=perm('$env.service.create',
+                                    resolve_service_create))
 async def create_service(request):
     bod = await request.json()
 
@@ -170,9 +185,18 @@ async def edit_service(request):
     return web.Response(status=200, text=json.dumps(db_res))
 
 
-@requires_auth
+async def resolve_service_delete(request):
+    service_name = request.match_info['name']
+    srvc_conf = await db_get_service_conf(service_name)
+    print(srvc_conf)
+    return {'env': srvc_conf['environments']}
+
+
+@requires_auth(permission_expr=perm('$env.service.delete',
+                                    resolve_service_delete))
 async def delete_service(request):
     service_name = request.match_info['name']
+
     db_res = await db_delete_service(service_name)
     return web.Response(status=200,
                         text=json.dumps(db_res),

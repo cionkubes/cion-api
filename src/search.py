@@ -4,6 +4,7 @@ import rethinkdb as r
 from luqum.parser import parser
 from luqum.tree import FieldGroup, Term, AndOperation, OrOperation, SearchField
 import datetime
+from logzero import logger
 
 
 def match(value, expr):
@@ -72,7 +73,7 @@ def traverse(row, group, name):
 
 def get_filter(search_string):
     if not search_string.strip():
-        print('Search string empty. Skipping filtering')
+        logger.debug('Search string empty. Skipping filtering')
         return None
 
     tree = parser.parse(search_string)

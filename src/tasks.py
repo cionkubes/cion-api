@@ -4,13 +4,13 @@ import luqum.parser
 import rethinkdb as r
 from aiohttp import web
 
-import search
-
 import rdb_conn
+import search
+from auth import requires_auth
+from permissions.permission import perm
+
 
 # -- db request functions --
-from auth import requires_auth
-
 
 async def db_create_task(image, environment, service_name):
     data = {
@@ -27,7 +27,13 @@ async def db_create_task(image, environment, service_name):
 
 # -- web request functions --
 
-@requires_auth
+async def resolve_task_create(request):
+    bod = await request.json()
+    return {'env': bod['environment']}
+
+
+@requires_auth(permission_expr=perm('$env.service.deploy',
+                                    resolve_task_create))
 async def create_task(request):
     bod = await request.json()
     db_res = await db_create_task(bod['image-name'], bod['environment'],
@@ -37,7 +43,7 @@ async def create_task(request):
                         content_type='application/json')
 
 
-@requires_auth
+@requires_auth(permission_expr=perm('cion.view.events'))
 async def get_tasks(request):
     page_start = int(request.query['pageStart'])
     page_length = int(request.query['pageLength'])
@@ -46,8 +52,9 @@ async def get_tasks(request):
         sort_index = 'time'
     search_term = request.query['searchTerm']
 
-    sort_direction = r.desc if request.query['reverseSort']\
-                                   .lower() == 'true' else r.asc
+    sort_direction = r.asc \
+        if request.query['reverseSort'].lower() == 'true' \
+        else r.desc
 
     print(page_start, page_start + page_length)
 

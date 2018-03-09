@@ -6,6 +6,7 @@ from aiohttp import web
 import auth
 import rdb_conn
 from auth import requires_auth
+from permissions.permission import perm
 
 
 async def db_set_gravatar_email(username, gravatar_email):
@@ -55,6 +56,8 @@ async def db_set_permissions(username, permissions):
     )
 
 
+# -- web endpoint funcs
+
 def bad_creds_response():
     return web.Response(status=401,
                         text='{"error": "Bad credentials."}',
@@ -79,7 +82,7 @@ async def get_permissions(request):
                         content_type='application/json')
 
 
-@requires_auth
+@requires_auth(permission_expr=perm('cion.user.edit'))
 async def set_permissions(request):
     username = request.match_info['username']
     bod = await request.json()
@@ -165,7 +168,7 @@ async def change_password(request):
                         content_type='application/json')
 
 
-@requires_auth
+@requires_auth(permission_expr=perm('cion.user.delete'))
 async def delete_user(request):
     username = request.match_info['name']
 

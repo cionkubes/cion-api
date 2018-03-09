@@ -6,6 +6,8 @@ import rdb_conn
 from auth import requires_auth
 from logzero import logger
 
+from permissions.permission import perm
+
 
 def sort_array_values(d):
     if type(d) is dict:
@@ -30,7 +32,7 @@ async def get_document(request):
                         content_type='application/json')
 
 
-@requires_auth
+@requires_auth(permission_expr=perm('cion.config.edit'))
 async def set_document(request):
     bod = await request.json()
     await rdb_conn.conn.run(
@@ -60,7 +62,8 @@ async def get_permission_def(request):
     perms = {
         'cion': {
             'user': ['create', 'edit', 'delete'],
-            'view': ['events', 'config']
+            'view': ['events', 'config'],
+            'config': ['edit']
         }
     }
     env_perms = {
