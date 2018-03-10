@@ -1,6 +1,6 @@
 import json
-
 import re
+
 import rethinkdb as r
 from aiohttp import web
 
@@ -9,18 +9,39 @@ from auth import requires_auth
 from permissions.permission import perm
 
 
-def check_url_safe(string):
-    return re.match("^[a-zA-Z0-9_-]+$", string)
+def validate_input(string):
+    """
+    Validates the given string
+
+    :param string: string to validate
+    :return: the regex match search
+    """
+    return re.match("^[a-zA-Z0-9_\-/]+$", string)
 
 
 def url_safe_service_image(service_name, image_name):
-    if not check_url_safe(service_name):
+    """
+    Validates the given strings and returns an aiohttp error response if they
+    do not validate.
+    :param service_name: name of the service
+    :param image_name: name of the image
+    :return: aiohttp response if given strings do not validate
+    """
+    if not validate_input(service_name):
         return web.Response(status=422, text="Invalid service name")
-    elif not check_url_safe(image_name):
+    elif not validate_input(image_name):
         return web.Response(status=422, text="Invalid image name")
 
 
+# TODO: find usage
 def task_base_image_name_filter(glob, image_base_name):
+    """
+
+    :param glob:
+    :param image_base_name:
+    :return:
+    """
+
     def task_filter(task):
         # 1. Capture part of image-name that should match the image-name
         # from the service conf
@@ -34,16 +55,38 @@ def task_base_image_name_filter(glob, image_base_name):
 # database functions
 
 async def db_get_service_conf(service_name):
+    """
+    Fetches and returns configuration for the given service name
+
+    :param service_name: name of the service to get configuration for
+    :return: service configuration dictionary
+    """
     return await rdb_conn.conn.run(rdb_conn.conn.db()
                                    .table('documents')
                                    .get('services')['document'][service_name])
 
 
 async def db_create_service(service_name, environments, image_name):
+    """
+    Creates a service configuration in the database
+
+    :param service_name: name of the service
+    :param environments: environments for the service configuration
+    :param image_name: image name for the service configuration
+    :return:
+    """
     return await db_replace_service(service_name, environments, image_name)
 
 
 async def db_replace_service(service_name, environments, image_name):
+    """
+    Updates a service configuration
+
+    :param service_name: service name of the configuration to update
+    :param environments: environments to update
+    :param image_name: image name to update
+    :return:
+    """
     data = {
         'environments': environments,
         'image-name': image_name
@@ -56,16 +99,22 @@ async def db_replace_service(service_name, environments, image_name):
 
 
 async def db_get_running_image(service_name):
+    """
+    Gets the last updated image for a given service name.
+
+    :param service_name: name of the service to get image for
+    :return: running image
+    """
     db_res = await rdb_conn.conn.run(
         rdb_conn.conn.db().table('tasks')  # All tasks
-        # filter for update-tasks that were completed successfully
-        .filter({'status': 'done', 'event': 'update-service',
-                 'service-name': service_name})
-        .group('environment')  # group by environment
-        .order_by(r.desc('time'))  # Sort tasks by time
-        .limit(1)  # Select only newest tasks
-        .pluck('image-name', 'time')  # only return image-name and time
-        )
+            # filter for update-tasks that were completed successfully
+            .filter({'status': 'done', 'event': 'update-service',
+                     'service-name': service_name})
+            .group('environment')  # group by environment
+            .order_by(r.desc('time'))  # Sort tasks by time
+            .limit(1)  # Select only newest tasks
+            .pluck('image-name', 'time')  # only return image-name and time
+    )
 
     return {key: val.get("0", None) for key, val in db_res.items()}
 
@@ -83,6 +132,11 @@ async def db_get_unique_deployed_images(service_name):
 
 
 async def db_get_services():
+    """
+    Fetches all service configurations
+
+    :return: service configurations
+    """
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db()
                                      .table('documents')
                                      .get('services')['document'])
@@ -91,9 +145,15 @@ async def db_get_services():
 
 
 async def db_delete_service(service_name):
+    """
+    Deletes a service configuration from the database
+
+    :param service_name: name of service to delete service configuration for
+    :return: database result
+    """
     return await rdb_conn.conn.run(rdb_conn.conn.db().table('documents')
-                                   .get('services')
-                                   .replace(
+        .get('services')
+        .replace(
         r.row.without({'document': {service_name: True}})))
 
 
@@ -101,6 +161,12 @@ async def db_delete_service(service_name):
 
 @requires_auth
 async def get_services(request):
+    """
+    aiohttp endpoint to fetch all service configuration
+
+    :param request: aiohttp request object
+    :return: service configurations
+    """
     db_res = await db_get_services()
     return web.Response(status=200,
                         text=json.dumps(db_res),
@@ -109,6 +175,11 @@ async def get_services(request):
 
 @requires_auth
 async def get_running_image(request):
+    """
+    aiohttp endpoint to get the running image of a configured service
+    :param request: aiohttp request object
+    :return: aiohttp response with image name
+    """
     service_name = request.match_info['name']
     db_res = await db_get_running_image(service_name)
     print(db_res)
@@ -123,6 +194,12 @@ async def get_running_image(request):
 
 @requires_auth
 async def get_service(request):
+    """
+    aiohttp endpoint to fetch a service configuration
+
+    :return: service configuration for the service name contained in the
+        request
+    """
     service_name = request.match_info['name']
     service_conf = await db_get_service_conf(service_name)
 
@@ -149,6 +226,12 @@ async def get_service(request):
 
 
 async def resolve_service_create(request):
+    """
+    Permission placeholder resolver for ``create_service``
+
+    :param request: aiohttp request object
+    :return: a dictionary containing environments from the request object
+    """
     bod = await request.json()
     return {'env': bod['environments']}
 
@@ -156,6 +239,9 @@ async def resolve_service_create(request):
 @requires_auth(permission_expr=perm('$env.service.create',
                                     resolve_service_create))
 async def create_service(request):
+    """
+    aiohttp endpoint to create a service configuration
+    """
     bod = await request.json()
 
     envs = bod['environments']
@@ -172,6 +258,9 @@ async def create_service(request):
 
 @requires_auth
 async def edit_service(request):
+    """
+    aiohttp endpoint to edit a service configuration
+    """
     bod = await request.json()
     envs = bod['environments']
     name = bod['service-name']
@@ -186,6 +275,12 @@ async def edit_service(request):
 
 
 async def resolve_service_delete(request):
+    """
+    Permission placeholder resolver for the service delete endpoint
+
+    :param request: aiohttp request object
+    :return: dictionary containing placeholder values from the request object
+    """
     service_name = request.match_info['name']
     srvc_conf = await db_get_service_conf(service_name)
     print(srvc_conf)
@@ -195,6 +290,9 @@ async def resolve_service_delete(request):
 @requires_auth(permission_expr=perm('$env.service.delete',
                                     resolve_service_delete))
 async def delete_service(request):
+    """
+    aiohttp endpoint to delete a service configuration
+    """
     service_name = request.match_info['name']
 
     db_res = await db_delete_service(service_name)

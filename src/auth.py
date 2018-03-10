@@ -6,12 +6,11 @@ import random
 import urllib.parse
 from functools import wraps
 
-from permissions.permission import perm
-
 import rethinkdb as r
 from aiohttp import web
 
 import rdb_conn
+from permissions.permission import perm
 
 sessions = {}
 
@@ -21,12 +20,25 @@ sessions = {}
 # -- sessions
 
 def create_session(user):
+    """
+    Creates a session for the given user and returns a generated session token.
+
+    :param user: user object of the user to create a session for
+    :return: The generated session-token
+    """
     token = binascii.hexlify(os.urandom(64)).decode()
     sessions[token] = user
     return token
 
 
 def retrieve_session(request):
+    """
+    Retrieves the stored session object stored on the session token contained
+    in the given aiohttp request object.
+
+    :param request: The aiohttp request object that contains the session token
+    :return: The session user object
+    """
     token = request.headers.get('X-CSRF-Token')
     return sessions[token]
 
@@ -34,6 +46,13 @@ def retrieve_session(request):
 # -- hashing
 
 def create_hash(to_hash: str):
+    """
+    Creates a hash from the given string. Returns the generated hash,
+    and iterations and salt used.
+
+    :param to_hash: the string to hash
+    :return: hash and salt as bytes, iterations as int
+    """
     iterations = random.randint(20000, 25000)
     salt = os.urandom(32)
     hash_created = hash_str(to_hash, salt, iterations)
@@ -41,11 +60,29 @@ def create_hash(to_hash: str):
 
 
 def hash_str(to_hash: str, salt, iterations):
+    """
+    Generates a hash from the given string with the specified salt and
+    iterations.
+
+    :param to_hash: The string to hash
+    :param salt: Salt to use in the hash function
+    :param iterations: number of iterations to use in the hash function
+    :return:
+    """
     return hashlib.pbkdf2_hmac('sha512', to_hash.encode(), salt, iterations,
                                128)
 
 
+# fixme: Find out if used at all. Remove if not
 def has_permission(permission_tree, path):
+    """
+    Returns True or False depending on if the given permission dict tree
+    contains the given path.
+
+    :param permission_tree: A dictionary tree
+    :param path: A list of keys to traverse the tree with
+    :return: True if the tree contains the given path list, false otherwise
+    """
     node = permission_tree
 
     for key in path[:-1]:
@@ -60,12 +97,23 @@ def has_permission(permission_tree, path):
 # -- web util funcs
 
 def bad_creds_response():
+    """
+    Creates and returns a 401 http response
+    :return: The generated 401  http response
+    """
     return web.Response(status=401,
                         text='{"error": "Bad credentials"}',
                         content_type='application/json')
 
 
 def forbidden_response(error_msg):
+    """
+    Creates and returns a  403 forbidden response with the given error msg
+    contained in the body.
+
+    :param error_msg: The message to put in the response
+    :return: The generated 403 http response
+    """
     return web.Response(status=403,
                         text='{"error": "You don\'t have the correct '
                              'permissions to perform this action. Missing: '
@@ -74,6 +122,14 @@ def forbidden_response(error_msg):
 
 
 def requires_auth(func=None, permission_expr=None):
+    """
+    A decorator to use on aiohttp endpoints to run authentication on all
+    requests before calling the endpoint function.
+
+    :param func: The function to wrap
+    :param permission_expr: The permission expression to check
+    :return: The decorated function
+    """
     if func:
         permission_expr = None
 
@@ -105,6 +161,15 @@ def requires_auth(func=None, permission_expr=None):
 # database funcs
 
 async def db_create_user(username, password, permissions):
+    """
+    Creates a user object in the database for the given username, password and
+    permission tree.
+
+    :param username: Username for the user
+    :param password: Password in plain-text for the user
+    :param permissions: The permission-tree for the user.
+    :return: Database response
+    """
     pw_hash, salt, iterations = create_hash(password)
 
     db_res = await rdb_conn.conn.run(rdb_conn.conn.db().table('users').insert({
@@ -123,6 +188,12 @@ async def db_create_user(username, password, permissions):
 
 @requires_auth(permission_expr=perm('cion.user.create'))
 async def api_create_user(request):
+    """
+    aiohttp function to create a user in the database
+
+    :param request: aiohttp request
+    :return: An aiohttp response object, 422 or 201
+    """
     bod = await request.json()
     username = bod['username']
 
@@ -174,6 +245,14 @@ async def api_create_user(request):
 
 
 async def api_auth(request):
+    """
+    Authenticates a user and creates a session if the username and password
+    in the request object matches a database entry.
+
+    :param request: aiohttp request object
+    :return: an aiohttp response object, 401 or 200 with token generated,
+        username, gravatar-url and gravatar-email
+    """
     bod = await request.json()
     username = bod['username']
     if not username:
@@ -226,6 +305,12 @@ async def api_auth(request):
 
 
 async def verify_token(request):
+    """
+    Verifies the X-CSRF-Token contained in the request object.
+
+    :param request: aiohttp request object
+    :return: 200 if valid token, 401 otherwise
+    """
     token = request.headers.get('X-CSRF-Token')
     if token in sessions:
         return web.Response(status=200)
@@ -234,6 +319,12 @@ async def verify_token(request):
 
 
 async def logout(request):
+    """
+    Invalidates the session of the token given in the request.
+
+    :param request: aiohttp request object
+    :return: aiohttp web response object
+    """
     token = request.headers.get('X-CSRF-Token')
     user = sessions.pop(token, False)
     if user:

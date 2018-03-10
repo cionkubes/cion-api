@@ -13,6 +13,14 @@ from permissions.permission import perm
 # -- db request functions --
 
 async def db_create_task(image, environment, service_name):
+    """
+    Creates a task in the database
+
+    :param image: image-name field
+    :param environment: environment field
+    :param service_name: service-name field
+    :return: database result
+    """
     data = {
         'image-name': image,
         'event': 'update-service',
@@ -28,6 +36,14 @@ async def db_create_task(image, environment, service_name):
 # -- web request functions --
 
 async def resolve_task_create(request):
+    """
+    Permission placeholder resolver function for the task create endpoint
+
+    :param request: aiohttp request object
+    :return: dictionary containing values for the placeholders in the
+        permission path
+    """
+
     bod = await request.json()
     return {'env': bod['environment']}
 
@@ -35,6 +51,9 @@ async def resolve_task_create(request):
 @requires_auth(permission_expr=perm('$env.service.deploy',
                                     resolve_task_create))
 async def create_task(request):
+    """
+    aiohttp endpoint to create a task in the database
+    """
     bod = await request.json()
     db_res = await db_create_task(bod['image-name'], bod['environment'],
                                   bod['service-name'])
@@ -45,6 +64,14 @@ async def create_task(request):
 
 @requires_auth(permission_expr=perm('cion.view.events'))
 async def get_tasks(request):
+    """
+    Gets tasks from the database using the following query params:
+
+    - pageStart: starting page
+    - pageLength: length of page
+    - sortIndex: index to sort by
+    - searchTerm: lucene search term to filter the query by
+    """
     page_start = int(request.query['pageStart'])
     page_length = int(request.query['pageLength'])
     sort_index = request.query['sortIndex']
@@ -110,13 +137,9 @@ async def get_tasks(request):
                                                  'database.'}),
                                     content_type='application/json')
 
-
-
     except luqum.parser.ParseError as e:
         result = []
         count = 0
-
-    # print(result)
 
     return web.Response(status=200,
                         text=json.dumps({'rows': result,
