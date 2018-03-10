@@ -39,7 +39,6 @@ release = 'rc1'
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
-    'sphinx.ext.apidoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.coverage',
     'sphinx.ext.viewcode',
