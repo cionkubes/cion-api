@@ -32,6 +32,25 @@ async def db_get_document(doc_name):
         rdb_conn.conn.db().table('documents').get(doc_name))
 
 
+def generate_permission_def(swarms):
+    perms = {
+        'cion': {
+            'user': ['create', 'edit', 'delete'],
+            'view': ['events', 'config'],
+            'config': ['edit']
+        }
+    }
+    env_perms = {
+        'service': ['create', 'edit', 'delete', 'deploy']
+    }
+
+    for k in swarms['document'].keys():
+        perms[k] = env_perms
+
+    sort_array_values(perms)
+    return perms
+
+
 # -- web request functions --
 
 @requires_auth
@@ -94,23 +113,8 @@ async def get_permission_def(request):
     :param request: aiohttp request
     :return: aiohttp response with permission definition tree in body
     """
-    perms = {
-        'cion': {
-            'user': ['create', 'edit', 'delete'],
-            'view': ['events', 'config'],
-            'config': ['edit']
-        }
-    }
-    env_perms = {
-        'service': ['create', 'edit', 'delete', 'deploy']
-    }
 
     swarms = await db_get_document('swarms')
-    for k in swarms['document'].keys():
-        perms[k] = env_perms
-
-    sort_array_values(perms)
-
     return web.Response(status=200,
-                        text=json.dumps(perms, sort_keys=True),
+                        text=json.dumps(generate_permission_def(swarms), sort_keys=True),
                         content_type='application/json')
