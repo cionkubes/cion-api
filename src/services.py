@@ -248,9 +248,9 @@ async def create_service(request):
     name = bod['service-name']
     image_name = bod['image-name']
 
-    error = url_safe_service_image(name, image_name)
-    if error:
-        return error
+    # error = url_safe_service_image(name, image_name)
+    # if error:
+    #     return error
 
     db_res = await db_create_service(name, envs, image_name)
     return web.Response(status=201, text=json.dumps(db_res))
