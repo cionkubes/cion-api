@@ -1,3 +1,4 @@
+import asyncio
 import binascii
 import hashlib
 import json
@@ -19,6 +20,13 @@ sessions = {}
 
 # -- sessions
 
+
+async def watch_user(query, token):
+    with rdb_conn.conn.changes(query=query) as changes:
+        async for u in changes:
+            sessions[token]['user'] = u['new_val']
+
+
 def create_session(user):
     """
     Creates a session for the given user and returns a generated session token.
@@ -27,7 +35,13 @@ def create_session(user):
     :return: The generated session-token
     """
     token = binascii.hexlify(os.urandom(64)).decode()
-    sessions[token] = user
+    sessions[token] = {}
+    sessions[token]['user'] = user
+
+    q = r.db(rdb_conn.conn.db_name).table('users').get(user['username'])
+    task = asyncio.ensure_future(watch_user(q, token))
+    sessions[token]['task'] = task
+
     return token
 
 
@@ -145,7 +159,7 @@ def requires_auth(func=None, permission_expr=None):
             token = request.headers.get('X-CSRF-Token')
             if token not in sessions:
                 return bad_creds_response()
-            user = sessions[token]
+            user = sessions[token]['user']
             if permission_expr \
                     and ('permissions' not in user
                          or not await permission_expr.has_permission(
@@ -326,8 +340,9 @@ async def logout(request):
     :return: aiohttp web response object
     """
     token = request.headers.get('X-CSRF-Token')
-    user = sessions.pop(token, False)
-    if user:
+    session = sessions.pop(token, None)
+    if session:
+        session['task'].cancel()
         return web.Response(status=200,
                             text=json.dumps({
                                 'message':
