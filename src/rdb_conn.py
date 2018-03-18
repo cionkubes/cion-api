@@ -1,15 +1,16 @@
 import asyncio
 import json
+import os
+
+import rethinkdb as r
+from async_rethink import connection, Connection
+from logzero import logger
 
 import auth
-import rethinkdb as r
-from async_rethink import connection
-import os
-from logzero import logger
 
 r.set_loop_type('asyncio')
 
-conn = None
+conn: Connection = None
 
 
 def init():
@@ -23,11 +24,13 @@ def init():
     db_host = os.environ['DATABASE_HOST']
     db_port = os.environ['DATABASE_PORT']
 
-    conn = asyncio.get_event_loop().run_until_complete(connection(db_host, db_port))
+    conn = asyncio.get_event_loop().run_until_complete(
+        connection(db_host, db_port))
     asyncio.get_event_loop().run_until_complete(_init_database())
 
 
-async def ensure_table_exists(table_name, primary_key='id', func=None, indices=None):
+async def ensure_table_exists(table_name, primary_key='id', func=None,
+                              indices=None):
     """
     Creates a table in the database if it does not exist.
 
@@ -35,6 +38,8 @@ async def ensure_table_exists(table_name, primary_key='id', func=None, indices=N
     :param primary_key: field to use as primary key, default *id*
     :param func: rethinkdb function to run on the database after the table has
         been created, if it did not previously exist
+    :param indices: a list of strings; indexes to create on the table after
+        it's creation
     :return: the database response
     """
     ret = [r.db('cion').table_create(table_name, primary_key=primary_key)]
@@ -89,7 +94,6 @@ def create_admin_user_insert():
 
     with open('default_docs.json', 'r') as default:
         for entry in json.load(default):
-            print(entry)
             if entry['name'] == 'swarms':
                 swarms = entry
 
