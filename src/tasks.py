@@ -63,6 +63,21 @@ async def create_task(request):
 
 
 @requires_auth(permission_expr=perm('cion.view.events'))
+async def get_recent_tasks(request):
+    amount = int(request.query['amount'])
+    result = await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('tasks')
+            .order_by(index=r.desc('time'))
+            .limit(amount)
+            .coerce_to('array')
+    )
+
+    return web.Response(status=200,
+                        text=json.dumps({'rows': result}),
+                        content_type='application/json')
+
+
+@requires_auth(permission_expr=perm('cion.view.events'))
 async def get_tasks(request):
     """
     Gets tasks from the database using the following query params:
