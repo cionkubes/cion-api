@@ -85,13 +85,6 @@ async def get_tasks(request):
 
     print(page_start, page_start + page_length)
 
-    # r.db('cion').table('tasks')
-    # .orderBy({ index: "time" })
-    # .filter(r.row("image-name").match("cion/api"))
-    # .filter(r.row("event").match("new-image"))
-    # .coerceTo('array').do(res => {
-    #   return {result: res.slice(0, 20), length: res.count()};
-    # })
     filter_func = search.get_filter(search_term)
     try:
         if not filter_func:
@@ -101,10 +94,6 @@ async def get_tasks(request):
                     .slice(page_start, page_start + page_length)
                     .coerce_to('array')
             )
-
-            # result = [row for row in result]
-            # .slice(page_start,
-            #        page_start + page_length)
 
             count = await rdb_conn.conn.run(
                 rdb_conn.conn.db().table('tasks').count())
@@ -120,8 +109,6 @@ async def get_tasks(request):
                                             page_start + page_length),
                         'length': res.count()
                     })
-                    # .slice(page_start,
-                    #        page_start + page_length)
                 )
 
                 result = db_res['result']
