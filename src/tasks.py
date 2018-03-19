@@ -78,6 +78,18 @@ async def get_recent_tasks(request):
 
 
 @requires_auth(permission_expr=perm('cion.view.events'))
+async def get_task(request):
+    task_id = request.match_info['id']
+
+    result = await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('tasks').get(task_id))
+
+    return web.Response(status=200,
+                        text=json.dumps(result),
+                        content_type='application/json')
+
+
+@requires_auth(permission_expr=perm('cion.view.events'))
 async def get_tasks(request):
     """
     Gets tasks from the database using the following query params:
