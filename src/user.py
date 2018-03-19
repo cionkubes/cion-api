@@ -165,10 +165,10 @@ async def set_gravatar_email(request):
     bod = await request.json()
     email = bod['gravatar-email']
 
-    key = request.headers.get('X-CSRF-Token')
+    token = request.headers.get('X-CSRF-Token')
 
-    db_res = await db_set_gravatar_email(auth.sessions.get(key)['username'],
-                                         email)
+    db_res = await db_set_gravatar_email(
+        auth.sessions.get(token)['user']['username'], email)
 
     if 'errors' in db_res and db_res['errors']:
         return web.Response(status=422,
