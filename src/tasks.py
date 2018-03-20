@@ -68,6 +68,7 @@ async def get_recent_tasks(request):
     result = await rdb_conn.conn.run(
         rdb_conn.conn.db().table('tasks')
             .order_by(index=r.desc('time'))
+            .filter(r.row["event"] != 'log')
             .limit(amount)
             .coerce_to('array')
     )
