@@ -23,7 +23,7 @@ async def db_create_task(image, environment, service_name):
     """
     data = {
         'image-name': image,
-        'event': 'update-service',
+        'event': 'service-update',
         'service-name': service_name,
         'status': 'ready',
         'environment': environment,

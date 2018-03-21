@@ -108,8 +108,9 @@ async def db_get_running_image(service_name):
     db_res = await rdb_conn.conn.run(
         rdb_conn.conn.db().table('tasks')  # All tasks
             # filter for update-tasks that were completed successfully
-            .filter({'status': 'done', 'event': 'update-service',
-                     'service-name': service_name})
+            .filter({'status': 'done',
+                     'event': 'service-update',
+                     'service': service_name})
             .group('environment')  # group by environment
             .order_by(r.desc('time'))  # Sort tasks by time
             .limit(1)  # Select only newest tasks
@@ -121,9 +122,9 @@ async def db_get_running_image(service_name):
 
 async def db_get_unique_deployed_images(service_name):
     return await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')
-                                   .filter(
-        {'status': 'done', 'event': 'update-service',
-         'service-name': service_name})
+                                   .filter({'status': 'done',
+                                            'event': 'service-update',
+                                            'service-name': service_name})
                                    .pluck('image-name')
                                    .distinct()
                                    .order_by(r.desc('image-name'))
