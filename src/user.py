@@ -203,6 +203,36 @@ async def get_users(request):
                         content_type='application/json')
 
 
+async def help_change_password(request_body, username):
+    pw = request_body['new-password']
+    pw_rep = request_body['repeat-password']
+    if not pw == pw_rep:
+        return web.Response(status=422,
+                            text=json.dumps(
+                                {'error': 'Passwords do not match'}),
+                            content_type='application/json')
+
+    valid, msg = auth.validate_password(pw)
+
+    if not valid:
+        return web.Response(status=422,
+                            text=json.dumps({'error': msg}),
+                            content_type='application/json')
+
+    db_res = await db_change_password(username, pw)
+    if 'errors' in db_res and db_res['errors']:
+        return web.Response(status=422,
+                            text=json.dumps({
+                                'error': 'Error setting password'}),
+                            content_type='application/json')
+
+    auth.invalidate_sessions(username)
+
+    return web.Response(status=200,
+                        text=json.dumps(db_res),
+                        content_type='application/json')
+
+
 @requires_auth
 async def change_password(request):
     """
@@ -211,25 +241,20 @@ async def change_password(request):
     Username comes from the request url.
     """
     bod = await request.json()
-    pw = bod['new-password']
-    pw_rep = bod['repeat-password']
-    if not pw == pw_rep:
-        return web.Response(status=422,
-                            text=json.dumps(
-                                {'error': 'Passwords do not match'}),
-                            content_type='application/json')
-
     username = request.match_info['name']
-    db_res = await db_change_password(username, pw)
-    if 'errors' in db_res and db_res['errors']:
-        return web.Response(status=422,
-                            text=json.dumps({
-                                'error': 'Error setting password'}),
-                            content_type='application/json')
+    return await help_change_password(bod, username)
 
-    return web.Response(status=200,
-                        text=json.dumps(db_res),
-                        content_type='application/json')
+
+@requires_auth
+async def change_own_password(request):
+    """
+    Updates the password for the specified user.
+
+    Username comes from the request url.
+    """
+    username = auth.retrieve_session(request)['user']['username']
+    bod = await request.json()
+    return await help_change_password(bod, username)
 
 
 @requires_auth(permission_expr=perm('cion.user.delete'))
@@ -254,6 +279,8 @@ async def delete_user(request):
                             text=json.dumps({
                                 'error': 'Error deleting user'}),
                             content_type='application/json')
+
+    auth.invalidate_sessions(username)
 
     return web.Response(status=200,
                         text=json.dumps(db_res),

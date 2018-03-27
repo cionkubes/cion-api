@@ -10,7 +10,7 @@ from tasks import get_tasks, create_task, get_recent_tasks, get_task
 from auth import api_auth, api_create_user, logout, verify_token
 from cion_system import get_health
 from user import set_gravatar_email, get_users, delete_user, change_password, \
-    get_permissions, set_permissions
+    get_permissions, set_permissions, change_own_password
 
 app = web.Application()
 
@@ -45,6 +45,7 @@ if __name__ == '__main__':
     app.router.add_post('/api/v1/logout', logout)
 
     app.router.add_post('/api/v1/user/setgravataremail', set_gravatar_email)
+    app.router.add_put('/api/v1/user/setpassword', change_own_password)
     app.router.add_get('/api/v1/users', get_users)
     app.router.add_put('/api/v1/user/{name}/setpassword', change_password)
     app.router.add_delete('/api/v1/user/{name}', delete_user)

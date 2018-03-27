@@ -27,6 +27,12 @@ async def watch_user(query, token):
             sessions[token]['user'] = u['new_val']
 
 
+def validate_password(password):
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long"
+    return True, "Password is valid"
+
+
 def create_session(user):
     """
     Creates a session for the given user and returns a generated session token.
@@ -55,6 +61,19 @@ def retrieve_session(request):
     """
     token = request.headers.get('X-CSRF-Token')
     return sessions[token]
+
+
+def invalidate_sessions(username):
+    """
+    Invalidates all sessions for the given username
+
+    :param username: username
+    """
+    for token in list(sessions.keys()):
+        session = sessions[token]
+        if username == session['user']['username']:
+            sessions.pop(token)
+            session['task'].cancel()
 
 
 # -- hashing
@@ -224,10 +243,11 @@ async def api_create_user(request):
                             text='{"error": "Password cannot be empty"}',
                             content_type='application/json')
 
-    if len(password) < 8:
+    valid, msg = validate_password(password)
+
+    if not valid:
         return web.Response(status=422,
-                            text='{"error": "Password must be at least 8 '
-                                 'characters long"}',
+                            text=json.dumps({"error": msg}),
                             content_type='application/json')
 
     repeat_password = bod['repeat-password']
