@@ -4,18 +4,26 @@ import luqum.parser
 import rethinkdb as r
 from aiohttp import web
 
-import search
-
 import rdb_conn
+import search
+from auth import requires_auth
+from permissions.permission import perm
+
 
 # -- db request functions --
-from auth import requires_auth
-
 
 async def db_create_task(image, environment, service_name):
+    """
+    Creates a task in the database
+
+    :param image: image-name field
+    :param environment: environment field
+    :param service_name: service-name field
+    :return: database result
+    """
     data = {
         'image-name': image,
-        'event': 'update-service',
+        'event': 'service-update',
         'service-name': service_name,
         'status': 'ready',
         'environment': environment,
@@ -27,8 +35,25 @@ async def db_create_task(image, environment, service_name):
 
 # -- web request functions --
 
-@requires_auth
+async def resolve_task_create(request):
+    """
+    Permission placeholder resolver function for the task create endpoint
+
+    :param request: aiohttp request object
+    :return: dictionary containing values for the placeholders in the
+        permission path
+    """
+
+    bod = await request.json()
+    return {'env': bod['environment']}
+
+
+@requires_auth(permission_expr=perm('$env.service.deploy',
+                                    resolve_task_create))
 async def create_task(request):
+    """
+    aiohttp endpoint to create a task in the database
+    """
     bod = await request.json()
     db_res = await db_create_task(bod['image-name'], bod['environment'],
                                   bod['service-name'])
@@ -37,8 +62,44 @@ async def create_task(request):
                         content_type='application/json')
 
 
-@requires_auth
+@requires_auth(permission_expr=perm('cion.view.events'))
+async def get_recent_tasks(request):
+    amount = int(request.query['amount'])
+    result = await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('tasks')
+            .order_by(index=r.desc('time'))
+            .filter(r.row["event"] != 'log')
+            .limit(amount)
+            .coerce_to('array')
+    )
+
+    return web.Response(status=200,
+                        text=json.dumps({'rows': result}),
+                        content_type='application/json')
+
+
+@requires_auth(permission_expr=perm('cion.view.events'))
+async def get_task(request):
+    task_id = request.match_info['id']
+
+    result = await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('tasks').get(task_id))
+
+    return web.Response(status=200,
+                        text=json.dumps(result),
+                        content_type='application/json')
+
+
+@requires_auth(permission_expr=perm('cion.view.events'))
 async def get_tasks(request):
+    """
+    Gets tasks from the database using the following query params:
+
+    - pageStart: starting page
+    - pageLength: length of page
+    - sortIndex: index to sort by
+    - searchTerm: lucene search term to filter the query by
+    """
     page_start = int(request.query['pageStart'])
     page_length = int(request.query['pageLength'])
     sort_index = request.query['sortIndex']
@@ -46,18 +107,12 @@ async def get_tasks(request):
         sort_index = 'time'
     search_term = request.query['searchTerm']
 
-    sort_direction = r.desc if request.query['reverseSort']\
-                                   .lower() == 'true' else r.asc
+    sort_direction = r.asc \
+        if request.query['reverseSort'].lower() == 'true' \
+        else r.desc
 
     print(page_start, page_start + page_length)
 
-    # r.db('cion').table('tasks')
-    # .orderBy({ index: "time" })
-    # .filter(r.row("image-name").match("cion/api"))
-    # .filter(r.row("event").match("new-image"))
-    # .coerceTo('array').do(res => {
-    #   return {result: res.slice(0, 20), length: res.count()};
-    # })
     filter_func = search.get_filter(search_term)
     try:
         if not filter_func:
@@ -67,10 +122,6 @@ async def get_tasks(request):
                     .slice(page_start, page_start + page_length)
                     .coerce_to('array')
             )
-
-            # result = [row for row in result]
-            # .slice(page_start,
-            #        page_start + page_length)
 
             count = await rdb_conn.conn.run(
                 rdb_conn.conn.db().table('tasks').count())
@@ -86,8 +137,6 @@ async def get_tasks(request):
                                             page_start + page_length),
                         'length': res.count()
                     })
-                    # .slice(page_start,
-                    #        page_start + page_length)
                 )
 
                 result = db_res['result']
@@ -103,13 +152,9 @@ async def get_tasks(request):
                                                  'database.'}),
                                     content_type='application/json')
 
-
-
     except luqum.parser.ParseError as e:
         result = []
         count = 0
-
-    # print(result)
 
     return web.Response(status=200,
                         text=json.dumps({'rows': result,
