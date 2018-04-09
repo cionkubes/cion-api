@@ -122,8 +122,7 @@ async def db_get_running_image(service_name):
 
 async def db_get_unique_deployed_images(service_name):
     return await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')
-                                   .filter({'status': 'done',
-                                            'event': 'service-update',
+                                   .filter({'event': 'service-update',
                                             'service-name': service_name})
                                    .pluck('image-name')
                                    .distinct()
