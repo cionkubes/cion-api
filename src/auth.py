@@ -22,9 +22,8 @@ sessions = {}
 
 
 async def watch_user(query, token):
-    with rdb_conn.conn.changes(query=query) as changes:
-        async for u in changes:
-            sessions[token]['user'] = u['new_val']
+    async for change in rdb_conn.conn.iter(query.changes()):
+        sessions[token]['user'] = change['new_val']
 
 
 def validate_password(password):

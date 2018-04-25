@@ -90,12 +90,12 @@ def create_admin_user_insert():
 
     from documents import generate_permission_def
 
-    swarms = {'document': {}}
+    swarms = []
 
     with open('default_docs.json', 'r') as default:
         for entry in json.load(default):
             if entry['name'] == 'swarms':
-                swarms = entry
+                swarms = entry['document']
 
     return {
         'username': 'admin',
@@ -115,13 +115,23 @@ async def _init_database():
 
     await ensure_db_exists('cion')
     await ensure_table_exists('tasks', indices=['time'])
-    with open('default_docs.json', 'r') as default:
-        await ensure_table_exists('documents', primary_key='name',
-                                  func=r.db('cion').table('documents').insert(
-                                      json.load(default))
-                                  )
     await ensure_table_exists('users', primary_key='username',
                               func=r.db('cion').table('users').insert(
                                   create_admin_user_insert())
                               )
+
+    with open('default_docs.json') as file:
+        for table in json.load(file):
+            if 'document' in table:
+                query = r.db('cion')\
+                    .table(table['name'])\
+                    .insert(table['document'])
+            else:
+                query = None
+
+            await ensure_table_exists(table['name'], 
+                                      primary_key=table.get('primary_key', "id"),
+                                      indices=table.get('indices', None),
+                                      func=query
+                                     )
     logger.info('Database initialization complete')

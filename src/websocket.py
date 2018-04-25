@@ -4,6 +4,8 @@ from collections import defaultdict
 
 from logzero import logger
 
+from aioreactive.core import subscribe, AsyncAnonymousObserver
+
 
 def create(conn):
     socket = WebSocketListener(conn)
@@ -30,7 +32,7 @@ class WebSocketListener:
                     data = msg.json()
 
                     handler = WebSocketListener.dispatch[data['channel']]
-                    handler(self, ws, data['message'])
+                    await handler(self, ws, data['message'])
                 elif msg.type == MsgType.error:
                     logger.debug('ws connection closed with exception %s' % ws.exception())
                 elif msg.type == MsgType.close:
@@ -42,37 +44,41 @@ class WebSocketListener:
             self.clients.remove(ws)
 
             for sub in self.subscriptions[ws].values():
-                sub.dispose()
+                await sub.adispose()
 
             ws.close()
 
         return ws
 
-    def subscribe(self, ws, message):
+    async def subscribe(self, ws, message):
         subs = self.subscriptions[ws]
         table = message
 
         if table in subs:
-            return
+            logger.debug("Client attempting to subscribe to already subscribed table")
 
-        def on_change(change):
+        async def on_change(change):
             ws.send_json({"channel": f"changefeed-{table}", "type": "next", "message": change})
 
-        def on_error(error):
+        async def on_error(error):
             logger.warn(error)
             ws.send_json({"channel": f"changefeed-{table}", "type": "error", "message": str(error)})
 
-        def on_complete():
+        async def on_complete():
             del subs[table]
 
-        subs[table] = self.conn.observe(message).subscribe(on_change, on_error, on_complete)
+        subs[table] = await subscribe(
+            self.conn.observe(message), 
+            AsyncAnonymousObserver(on_change, on_error, on_complete)
+        )
 
-    def unsubscribe(self, ws, message):
+    async def unsubscribe(self, ws, message):
         subs = self.subscriptions[ws]
         table = message
 
         if table in subs:
-            subs[table].dispose()
+            await subs[table].adispose()
+            del subs[table]
 
     dispatch = {
         "subscribe": subscribe,

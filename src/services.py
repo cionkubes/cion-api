@@ -3,6 +3,7 @@ import re
 
 import rethinkdb as r
 from aiohttp import web
+from logzero import logger
 
 import rdb_conn
 from auth import requires_auth
@@ -62,8 +63,8 @@ async def db_get_service_conf(service_name):
     :return: service configuration dictionary
     """
     return await rdb_conn.conn.run(rdb_conn.conn.db()
-                                   .table('documents')
-                                   .get('services')['document'][service_name])
+                                   .table('services')
+                                   .get(service_name))
 
 
 async def db_create_service(service_name, environments, image_name):
@@ -75,7 +76,16 @@ async def db_create_service(service_name, environments, image_name):
     :param image_name: image name for the service configuration
     :return:
     """
-    return await db_replace_service(service_name, environments, image_name)
+
+    data = {
+        'name': service_name,
+        'environments': environments,
+        'image-name': image_name
+    }
+
+    return await rdb_conn.conn.run(
+        rdb_conn.conn.db().table("services").insert(data)
+    )
 
 
 async def db_replace_service(service_name, environments, image_name):
@@ -93,9 +103,8 @@ async def db_replace_service(service_name, environments, image_name):
     }
 
     return await rdb_conn.conn.run(
-        rdb_conn.conn.db().table('documents').get("services").update(
-            {"document": {service_name: data}}
-        ))
+        rdb_conn.conn.db().table("services").get(service_name).update(data)
+    )
 
 
 async def db_get_running_image(service_name):
@@ -138,11 +147,9 @@ async def db_get_services():
 
     :return: service configurations
     """
-    db_res = await rdb_conn.conn.run(rdb_conn.conn.db()
-                                     .table('documents')
-                                     .get('services')['document'])
-
-    return [{"name": name, **service} for name, service in db_res.items()]
+    return await rdb_conn.conn.list(rdb_conn.conn.db()
+                                     .table('services')
+                                     )
 
 
 async def db_delete_service(service_name):
@@ -152,10 +159,10 @@ async def db_delete_service(service_name):
     :param service_name: name of service to delete service configuration for
     :return: database result
     """
-    return await rdb_conn.conn.run(rdb_conn.conn.db().table('documents')
-        .get('services')
-        .replace(
-        r.row.without({'document': {service_name: True}})))
+    return await rdb_conn.conn.run(rdb_conn.conn.db()
+        .table('services')
+        .get(service_name)
+        .delete())
 
 
 # -- web request functions --
