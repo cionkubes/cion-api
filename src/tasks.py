@@ -32,6 +32,18 @@ async def db_create_task(image, environment, service_name):
     return await rdb_conn.conn.run(r.db('cion').table('tasks').insert(data))
 
 
+async def db_cf_tasks_status_counts():
+    return await rdb_conn.conn.run(
+        r.db('cion').table('tasks').changes().merge(
+                r.db("cion").table("tasks")
+                    .filter({"event": "service-update"})
+                    .group("status")
+                    .count()
+                    .ungroup()
+        )
+    )
+
+
 # -- web request functions --
 
 async def resolve_task_create(request):
