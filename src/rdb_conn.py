@@ -94,7 +94,7 @@ def create_admin_user_insert():
 
     with open('default_docs.json', 'r') as default:
         for entry in json.load(default):
-            if entry['name'] == 'swarms':
+            if entry['name'] == 'environments':
                 swarms = entry['document']
 
     return {
