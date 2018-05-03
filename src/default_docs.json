@@ -1,8 +1,7 @@
 [
   {
-    "name": "swarms",
+    "name": "environments",
     "primary_key": "name",
-    "editable": true,
     "document": [
       {
         "name": "test",

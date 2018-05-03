@@ -135,7 +135,7 @@ async def get_documents(request):
 
     async def documents():
         for doc_name in editable_documents():
-            yield await document(doc_name) 
+            yield await document(doc_name)
 
     res = []
     async for name, doc in documents():
@@ -153,15 +153,18 @@ async def get_permission_def(request):
     :return: aiohttp response with permission definition tree in body
     """
 
-    swarms = await rdb_conn.conn.list(db_get_document('swarms'))
-    return json(generate_permission_def(swarms), sort_keys=True)
+    environments = \
+        await rdb_conn.conn.list(rdb_conn.conn.db().table('environments'))
+    return json(generate_permission_def(environments), sort_keys=True)
 
 
 def json(data, status=200, **kwargs):
     """
     Creates a json webresponse
 
+    :param status: HTTP status code of response
     :param data: json data to respond with
+    :param kwargs: arguments to json.dumps
     :return: Web response
     """
     return web.Response(status=status,
