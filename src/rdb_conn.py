@@ -53,7 +53,8 @@ async def ensure_table_exists(table_name, primary_key='id', func=None,
 
     return await conn.run(
         r.db('cion').table_list().contains(table_name).do(
-            lambda table_exists: r.branch(
+            lambda table_exists:
+            r.branch(
                 table_exists,
                 {'tables_created': 0},
                 ret
