@@ -47,5 +47,27 @@
         "image-name": "cion_test"
       }
     ]
+  },
+  {
+    "name": "webhooks",
+    "editable": true,
+    "document": [
+      {
+        "url": "http://webhook.site/358478a3-a6cc-43fb-8225-b1dcf0c71fb5",
+        "event": "new-image",
+        "on": {
+          "image-name": "crccheck/.*"
+        },
+        "headers": {
+          "Content-Type": "application/json",
+          "Via": "cionkubes.com"
+        },
+        "data": "{{'image': '{image-name}'}}"
+      }
+    ]
+  },
+  {
+    "name": "delayed_tasks",
+    "editable": true
   }
 ]
