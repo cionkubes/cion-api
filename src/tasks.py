@@ -57,7 +57,7 @@ async def create_task(request):
     db_res = await db_create_task(bod['image-name'], bod['environment'],
                                   bod['service-name'])
     return web.Response(status=200,
-                        text=json.dumps(db_res),
+                        text=json.dumps({"msg": "task created"}),
                         content_type='application/json')
 
 
