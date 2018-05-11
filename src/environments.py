@@ -48,3 +48,13 @@ async def get_environments(request):
         count = response['count']
 
     return json({'rows': result, 'totalLength': count})
+
+
+@requires_auth
+async def get_webhook(request):
+    webhook_id = request.match_info['id']
+
+    result = await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('webhooks').get(webhook_id))
+
+    return json(result)

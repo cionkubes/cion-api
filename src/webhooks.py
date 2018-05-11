@@ -31,11 +31,11 @@ async def create_webhook(request):
 
     if 'errors' in db_res and db_res['errors']:
         if db_res['first_error'].find('Duplicate primary key') >= 0:
-            text = f'Environment with name \'{bod["name"]}\' already exists'
+            text = f'Webhook with name \'{bod["name"]}\' already exists'
         else:
             text = 'Something went wrong when inserting into database'
         return json({'error': text}, status=422)
-    return json({'msg': 'Environment created'})
+    return json({'msg': 'Webhook created'})
 
 
 @requires_auth
@@ -56,5 +56,15 @@ async def get_webhook(request):
 
     result = await rdb_conn.conn.run(
         rdb_conn.conn.db().table('webhooks').get(webhook_id))
+
+    return json(result)
+
+
+@requires_auth(permission_expr=perm('cion.config.edit'))
+async def delete_webhook(request):
+    webhook_id = request.match_info['id']
+
+    result = await rdb_conn.conn.run(
+        rdb_conn.conn.db().table('webhooks').get(webhook_id).delete())
 
     return json(result)
