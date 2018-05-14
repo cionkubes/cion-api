@@ -32,6 +32,32 @@ async def db_create_task(image, environment, service_name):
     return await rdb_conn.conn.run(r.db('cion').table('tasks').insert(data))
 
 
+async def db_create_scheduled_task(schedule_at, event, image, environment,
+                                   service_name):
+    """
+    Creates an entry in the delayed_tasks table
+
+    :param schedule_at: date for when the task is to be scheduled for
+    :param event: event of the task
+    :param image: the image-field of the task
+    :param environment: what environment the task refers to
+    :param service_name: service-field of the task
+    :return:
+    """
+    data = {
+        "at": schedule_at,
+        "event": event,
+        "parameters": {
+            "environment": environment,
+            "service": service_name,
+            "image-name": image
+        }
+    }
+
+    return await rdb_conn.conn.run(
+        r.db('cion').table('delayed_tasks').insert(data))
+
+
 # -- web request functions --
 
 async def resolve_task_create(request):
@@ -57,7 +83,23 @@ async def create_task(request):
     db_res = await db_create_task(bod['image-name'], bod['environment'],
                                   bod['service-name'])
     return web.Response(status=200,
-                        text=json.dumps(db_res),
+                        text=json.dumps({"msg": "task created"}),
+                        content_type='application/json')
+
+
+@requires_auth(permission_expr=perm('$env.service.deploy',
+                                    resolve_task_create))
+async def schedule_deploy(request):
+    """
+    aiohttp endpoint to schedule a deployment task in the database
+    """
+    bod = await request.json()
+    db_res = await db_create_scheduled_task(bod['at'], bod['event'],
+                                            bod['image-name'],
+                                            bod['environment'],
+                                            bod['service'])
+    return web.Response(status=200,
+                        text=json.dumps({"msg": "task created"}),
                         content_type='application/json')
 
 

@@ -6,11 +6,14 @@ from services import get_service, delete_service, get_running_image, \
     get_services, create_service, edit_service
 from documents import get_documents, set_document, get_document, \
     get_permission_def
-from tasks import get_tasks, create_task, get_recent_tasks, get_task
+from tasks import get_tasks, create_task, get_recent_tasks, get_task, \
+    schedule_deploy
 from auth import api_auth, api_create_user, logout, verify_token
 from cion_system import get_health
 from user import set_gravatar_email, get_users, delete_user, change_password, \
     get_permissions, set_permissions, change_own_password
+from environments import get_environments, create_environment
+from webhooks import create_webhook, get_webhooks, get_webhook, delete_webhook
 
 app = web.Application()
 
@@ -22,6 +25,7 @@ if __name__ == '__main__':
 
     if not prod:
         static_path = os.path.join(os.environ['WEB_DIR'], 'lib')
+
 
         async def index(request):
             with open(os.path.join(static_path, 'spa-entry.html')) as f:
@@ -54,6 +58,16 @@ if __name__ == '__main__':
     app.router.add_get('/api/v1/tasks/recent', get_recent_tasks)
     app.router.add_get('/api/v1/task/{id}', get_task)
     app.router.add_post('/api/v1/create/task', create_task)
+    app.router.add_post('/api/v1/schedule/task', schedule_deploy)
+
+    app.router.add_get('/api/v1/environments', get_environments)
+    app.router.add_post('/api/v1/environment', create_environment)
+    # app.router.add_get('/api/v1/environment/{name}', get_environment)
+
+    app.router.add_get('/api/v1/webhooks', get_webhooks)
+    app.router.add_post('/api/v1/webhook', create_webhook)
+    app.router.add_get('/api/v1/webhook/{id}', get_webhook)
+    app.router.add_put('/api/v1/webhook/{id}', delete_webhook)
 
     app.router.add_get('/api/v1/documents', get_documents)
     app.router.add_post('/api/v1/documents', set_document)
