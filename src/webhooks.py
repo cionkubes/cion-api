@@ -13,7 +13,7 @@ async def db_create_webhook(url, event, match_on, headers, data):
         'event': event,
         'on': match_on,
         'headers': headers,
-        'data': data
+        'body': data
     }
 
     return await rdb_conn.conn.run(

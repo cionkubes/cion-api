@@ -49,7 +49,7 @@
   },
   {
     "name": "webhooks",
-    "editable": true,
+    "editable": false,
     "document": [
       {
         "url": "http://webhook.site/358478a3-a6cc-43fb-8225-b1dcf0c71fb5",
@@ -61,7 +61,7 @@
           "Content-Type": "application/json",
           "Via": "cionkubes.com"
         },
-        "data": "{{'image': '{image-name}'}}"
+        "body": "{{'image': '{image-name}'}}"
       }
     ]
   },
