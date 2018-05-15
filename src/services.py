@@ -126,13 +126,15 @@ async def db_get_running_image(service_name):
             .pluck('image-name', 'time')  # only return image-name and time
     )
 
-    return {key: val.get("0", None) for key, val in db_res.items()}
+    return {
+        key: val[0] if len(val) > 0 else None for key, val in db_res.items()
+    }
 
 
 async def db_get_unique_deployed_images(service_name):
     return await rdb_conn.conn.run(rdb_conn.conn.db().table('tasks')
                                    .filter({'event': 'service-update',
-                                            'service-name': service_name})
+                                            'service': service_name})
                                    .pluck('image-name')
                                    .distinct()
                                    .order_by(r.desc('image-name'))
