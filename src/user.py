@@ -233,7 +233,7 @@ async def help_change_password(request_body, username):
                         content_type='application/json')
 
 
-@requires_auth
+@requires_auth(permission_expr=perm('cion.user.edit'))
 async def change_password(request):
     """
     Updates the password for the specified user.
