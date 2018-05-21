@@ -27,7 +27,7 @@ async def create_environment(request):
     db_res = await db_create_environment(bod['mode'],
                                          bod['name'],
                                          bod['tag-match'],
-                                         bod['tls'])
+                                         bod.get('tls', None))
 
     if 'errors' in db_res and db_res['errors']:
         if db_res['first_error'].find('Duplicate primary key') >= 0:
